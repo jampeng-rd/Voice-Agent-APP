@@ -1,6 +1,10 @@
 package com.jam.voiceagent.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -26,10 +30,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -236,7 +240,17 @@ private fun TopRightQuickMenu(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        AnimatedVisibility(visible = showMenu) {
+        AnimatedVisibility(
+            visible = showMenu,
+            enter = fadeIn(tween(150)) + expandHorizontally(
+                animationSpec = tween(180),
+                expandFrom = Alignment.End
+            ),
+            exit = fadeOut(tween(100)) + shrinkHorizontally(
+                animationSpec = tween(140),
+                shrinkTowards = Alignment.End
+            )
+        ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.9f),
@@ -244,36 +258,26 @@ private fun TopRightQuickMenu(
                 shadowElevation = 0.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box(
+                    Icon(
+                        imageVector = Icons.Filled.Home,
+                        contentDescription = "Home 快捷",
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .size(28.dp)
-                            .clickable(onClick = onHomeClick),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Home,
-                            contentDescription = "Home 快捷",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-                    Box(
+                            .size(18.dp)
+                            .clickable(onClick = onHomeClick)
+                    )
+                    Icon(
+                        imageVector = if (isLoggedIn) Icons.AutoMirrored.Filled.Logout else Icons.Filled.Person,
+                        contentDescription = if (isLoggedIn) "登出快捷" else "登入快捷",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
-                            .size(28.dp)
-                            .clickable(onClick = onAccountClick),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isLoggedIn) Icons.AutoMirrored.Filled.Logout else Icons.Filled.Person,
-                            contentDescription = if (isLoggedIn) "登出快捷" else "登入快捷",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
+                            .size(18.dp)
+                            .clickable(onClick = onAccountClick)
+                    )
                 }
             }
         }
@@ -337,7 +341,7 @@ private fun BottomInputControls(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        imageVector = Icons.Filled.NorthEast,
                         contentDescription = "文字模式主操作",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(28.dp)

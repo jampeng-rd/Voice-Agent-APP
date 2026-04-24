@@ -73,6 +73,22 @@ fun AvatarFace(
         ),
         label = "talk"
     )
+    val idleSmile = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 6400
+                0f at 0
+                0f at 2600
+                0.35f at 3300
+                0.12f at 4100
+                0f at 5100
+                0f at 6400
+            }
+        ),
+        label = "idle-smile"
+    )
 
     Box(
         modifier = modifier
@@ -107,6 +123,7 @@ fun AvatarFace(
             AvatarMouth(
                 state = state,
                 talkFactor = if (state == AvatarState.Speaking) talk.value else 0f,
+                idleSmileFactor = if (state == AvatarState.Idle) idleSmile.value else 0f,
                 color = featureColor,
                 modifier = Modifier
                     .size(size)

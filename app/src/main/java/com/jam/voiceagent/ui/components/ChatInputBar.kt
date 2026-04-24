@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -47,7 +47,7 @@ fun ChatInputBar(
         trailingIcon = {
             IconButton(onClick = {}) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    imageVector = Icons.Filled.NorthEast,
                     contentDescription = "送出輔助文字",
                     tint = iconColor
                 )

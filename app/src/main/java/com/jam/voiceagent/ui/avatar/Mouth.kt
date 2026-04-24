@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 fun AvatarMouth(
     state: AvatarState,
     talkFactor: Float,
+    idleSmileFactor: Float,
     color: Color,
     modifier: Modifier = Modifier
 ) {
@@ -23,7 +24,35 @@ fun AvatarMouth(
         val stroke = size.minDimension * 0.018f
 
         when (state) {
-            AvatarState.Idle,
+            AvatarState.Idle -> {
+                val smile = idleSmileFactor.coerceIn(0f, 1f)
+                if (smile < 0.07f) {
+                    drawLine(
+                        color = color,
+                        start = Offset(center.x - base * 0.55f, center.y),
+                        end = Offset(center.x + base * 0.55f, center.y),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                } else {
+                    drawArc(
+                        color = color,
+                        startAngle = 18f,
+                        sweepAngle = 144f,
+                        useCenter = false,
+                        topLeft = Offset(
+                            center.x - base * (0.7f + smile * 0.14f),
+                            center.y - base * (0.17f + smile * 0.22f)
+                        ),
+                        size = Size(
+                            base * (1.4f + smile * 0.3f),
+                            base * (0.3f + smile * 0.35f)
+                        ),
+                        style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    )
+                }
+            }
+
             AvatarState.Thinking,
             AvatarState.Helpless -> {
                 drawLine(
