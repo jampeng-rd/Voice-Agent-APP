@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,13 +41,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -97,16 +96,16 @@ fun AssistantHomeScreen() {
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 58.dp),
+                    .padding(bottom = 62.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = state.statusText,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .alpha(0.72f)
-                        .padding(bottom = 18.dp),
+                        .alpha(0.8f)
+                        .padding(bottom = 24.dp),
                     fontWeight = FontWeight.Medium
                 )
 
@@ -117,17 +116,35 @@ fun AssistantHomeScreen() {
                     glowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
                 )
 
-                if (state == AvatarState.Speaking) {
-                    ListeningIndicator(
-                        isActive = true,
-                        color = MaterialTheme.colorScheme.primary,
-                        softColor = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier
-                            .padding(top = 10.dp)
-                            .width(102.dp)
-                            .height(22.dp)
-                    )
+                Box(
+                    modifier = Modifier
+                        .height(38.dp)
+                        .padding(top = 12.dp),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    if (state == AvatarState.Speaking) {
+                        ListeningIndicator(
+                            isActive = true,
+                            color = MaterialTheme.colorScheme.primary,
+                            softColor = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier
+                                .width(102.dp)
+                                .height(22.dp)
+                        )
+                    }
                 }
+            }
+
+            if (isTextInputMode) {
+                ChatInputBar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 106.dp),
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    textColor = MaterialTheme.colorScheme.onSurface,
+                    placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             BottomInputControls(
@@ -152,47 +169,39 @@ fun AssistantHomeScreen() {
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
-            if (isTextInputMode) {
-                ChatInputBar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 108.dp),
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    textColor = MaterialTheme.colorScheme.onSurface,
-                    placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 10.dp)
-                    .padding(bottom = if (isTextInputMode) 166.dp else 122.dp),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.84f),
+                    .padding(start = 8.dp)
+                    .padding(bottom = if (isTextInputMode) 156.dp else 114.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text(
                             text = "Debug",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.alpha(0.65f)
+                            modifier = Modifier.alpha(0.6f)
                         )
-                        IconButton(onClick = { showDebugPanel = !showDebugPanel }) {
-                            Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = "切換 debug 表情",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "切換 debug 表情",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clickable { showDebugPanel = !showDebugPanel }
+                                .alpha(0.72f)
+                        )
                     }
                     AnimatedVisibility(visible = showDebugPanel) {
                         EmotionButtons(
@@ -204,7 +213,7 @@ fun AssistantHomeScreen() {
                             container = MaterialTheme.colorScheme.surface,
                             label = MaterialTheme.colorScheme.onSurfaceVariant,
                             compact = true,
-                            modifier = Modifier.width(260.dp)
+                            modifier = Modifier.width(220.dp)
                         )
                     }
                 }
@@ -228,28 +237,43 @@ private fun TopRightQuickMenu(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         AnimatedVisibility(visible = showMenu) {
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.9f),
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
             ) {
-                IconButton(onClick = onHomeClick, modifier = Modifier.size(34.dp)) {
-                    Icon(
-                        imageVector = Icons.Filled.Home,
-                        contentDescription = "Home 快捷",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                IconButton(onClick = onAccountClick, modifier = Modifier.size(34.dp)) {
-                    Icon(
-                        imageVector = if (isLoggedIn) Icons.AutoMirrored.Filled.Logout else Icons.Filled.Person,
-                        contentDescription = if (isLoggedIn) "登出快捷" else "登入快捷",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clickable(onClick = onHomeClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Home,
+                            contentDescription = "Home 快捷",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clickable(onClick = onAccountClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isLoggedIn) Icons.AutoMirrored.Filled.Logout else Icons.Filled.Person,
+                            contentDescription = if (isLoggedIn) "登出快捷" else "登入快捷",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
                 }
             }
         }
@@ -295,99 +319,115 @@ private fun BottomInputControls(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 16.dp)
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 14.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            if (isTextInputMode) {
-                IconButton(onClick = {}, modifier = Modifier.size(66.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(66.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "文字模式主操作",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
+        if (isTextInputMode) {
+            IconButton(
+                onClick = {},
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+                    .size(66.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(66.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "文字模式主操作",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
-                IconButton(onClick = onSwitchToVoiceMode, modifier = Modifier.size(52.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Mic,
-                            contentDescription = "切回語音模式",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-            } else {
-                Box(contentAlignment = Alignment.Center) {
-                    if (isMicPressed) {
-                        Box(
-                            modifier = Modifier
-                                .size(76.dp)
-                                .scale(pulse)
-                                .alpha(0.46f)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.26f), CircleShape)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        onMicPressState(true)
-                                        try {
-                                            tryAwaitRelease()
-                                        } finally {
-                                            onMicPressState(false)
-                                        }
-                                    }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Mic,
-                            contentDescription = "語音模式主麥克風",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                }
+            }
 
-                IconButton(onClick = onSwitchToTextMode, modifier = Modifier.size(50.dp)) {
+            IconButton(
+                onClick = onSwitchToVoiceMode,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 2.dp, bottom = 8.dp)
+                    .size(44.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = "切回語音模式",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isMicPressed) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
-                            .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Keyboard,
-                            contentDescription = "切換文字模式",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                            .size(76.dp)
+                            .scale(pulse)
+                            .alpha(0.46f)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.26f), CircleShape)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    onMicPressState(true)
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        onMicPressState(false)
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = "語音模式主麥克風",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onSwitchToTextMode,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 2.dp, bottom = 8.dp)
+                    .size(44.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Keyboard,
+                        contentDescription = "切換文字模式",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }

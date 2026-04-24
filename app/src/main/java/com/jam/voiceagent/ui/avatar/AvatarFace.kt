@@ -32,10 +32,10 @@ fun AvatarFace(
 ) {
     val transition = rememberInfiniteTransition(label = "avatar-animation")
     val floating = transition.animateFloat(
-        initialValue = -2f,
-        targetValue = 2f,
+        initialValue = -3.5f,
+        targetValue = 3.5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200),
+            animation = tween(durationMillis = 2400),
             repeatMode = RepeatMode.Reverse
         ),
         label = "floating"
