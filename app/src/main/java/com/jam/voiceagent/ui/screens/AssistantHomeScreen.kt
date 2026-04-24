@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -43,8 +44,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,6 +63,7 @@ import com.jam.voiceagent.ui.avatar.AvatarState
 import com.jam.voiceagent.ui.components.ChatInputBar
 import com.jam.voiceagent.ui.components.EmotionButtons
 import com.jam.voiceagent.ui.voice.ListeningIndicator
+import kotlinx.coroutines.delay
 
 @Composable
 fun AssistantHomeScreen() {
@@ -68,7 +73,29 @@ fun AssistantHomeScreen() {
     var showSettingsQuickMenu by rememberSaveable { mutableStateOf(false) }
     var isLoggedIn by rememberSaveable { mutableStateOf(false) }
     var showDebugPanel by rememberSaveable { mutableStateOf(false) }
+    var lastInteractionMs by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val states = rememberAvatarStates()
+    val resetIdleTimer = { lastInteractionMs = System.currentTimeMillis() }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            nowMs = System.currentTimeMillis()
+        }
+    }
+
+    val idleElapsedMs = if (state == AvatarState.Idle) nowMs - lastInteractionMs else 0L
+    val sleepTarget = if (idleElapsedMs > 60_000L) {
+        ((idleElapsedMs - 60_000L) / 20_000f).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val idleSleepiness by animateFloatAsState(
+        targetValue = if (state == AvatarState.Idle) sleepTarget else 0f,
+        animationSpec = tween(durationMillis = 1800),
+        label = "idle-sleepiness"
+    )
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -84,9 +111,16 @@ fun AssistantHomeScreen() {
             TopRightQuickMenu(
                 showMenu = showSettingsQuickMenu,
                 isLoggedIn = isLoggedIn,
-                onToggleMenu = { showSettingsQuickMenu = !showSettingsQuickMenu },
-                onHomeClick = { showSettingsQuickMenu = false },
+                onToggleMenu = {
+                    resetIdleTimer()
+                    showSettingsQuickMenu = !showSettingsQuickMenu
+                },
+                onHomeClick = {
+                    resetIdleTimer()
+                    showSettingsQuickMenu = false
+                },
                 onAccountClick = {
+                    resetIdleTimer()
                     isLoggedIn = !isLoggedIn
                     showSettingsQuickMenu = false
                 },
@@ -117,13 +151,14 @@ fun AssistantHomeScreen() {
                     state = state,
                     headColor = MaterialTheme.colorScheme.primaryContainer,
                     featureColor = MaterialTheme.colorScheme.primary,
-                    glowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                    glowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                    sleepiness = idleSleepiness
                 )
 
                 Box(
                     modifier = Modifier
-                        .height(38.dp)
-                        .padding(top = 12.dp),
+                        .height(44.dp)
+                        .padding(top = 16.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
                     if (state == AvatarState.Speaking) {
@@ -156,16 +191,19 @@ fun AssistantHomeScreen() {
                 isMicPressed = isMicPressed,
                 onMicPressState = { pressed ->
                     if (!isTextInputMode) {
+                        resetIdleTimer()
                         isMicPressed = pressed
                         state = if (pressed) AvatarState.Listening else AvatarState.Idle
                     }
                 },
                 onSwitchToTextMode = {
+                    resetIdleTimer()
                     isTextInputMode = true
                     isMicPressed = false
                     if (state == AvatarState.Listening) state = AvatarState.Idle
                 },
                 onSwitchToVoiceMode = {
+                    resetIdleTimer()
                     isTextInputMode = false
                     isMicPressed = false
                     state = AvatarState.Idle
@@ -177,7 +215,7 @@ fun AssistantHomeScreen() {
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = 8.dp)
-                    .padding(bottom = if (isTextInputMode) 156.dp else 114.dp),
+                    .padding(bottom = if (isTextInputMode) 170.dp else 128.dp),
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
                 tonalElevation = 0.dp,
@@ -203,7 +241,10 @@ fun AssistantHomeScreen() {
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(14.dp)
-                                .clickable { showDebugPanel = !showDebugPanel }
+                                .clickable {
+                                    resetIdleTimer()
+                                    showDebugPanel = !showDebugPanel
+                                }
                                 .alpha(0.72f)
                         )
                     }
@@ -211,7 +252,10 @@ fun AssistantHomeScreen() {
                         EmotionButtons(
                             selected = state,
                             states = states,
-                            onSelect = { state = it },
+                            onSelect = {
+                                resetIdleTimer()
+                                state = it
+                            },
                             selectedContainer = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabel = MaterialTheme.colorScheme.primary,
                             container = MaterialTheme.colorScheme.surface,

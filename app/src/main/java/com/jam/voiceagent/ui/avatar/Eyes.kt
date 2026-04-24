@@ -4,7 +4,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -14,6 +16,9 @@ import kotlin.math.max
 fun AvatarEyes(
     state: AvatarState,
     blinkFactor: Float,
+    idleSurpriseFactor: Float,
+    idleTiredFactor: Float,
+    sleepiness: Float,
     color: Color,
     modifier: Modifier = Modifier
 ) {
@@ -32,7 +37,7 @@ fun AvatarEyes(
                     sweepAngle = 140f,
                     useCenter = false,
                     topLeft = Offset(leftX - r * 1.4f, eyeY - r * 0.5f),
-                    size = androidx.compose.ui.geometry.Size(r * 2.8f, r * 1.8f),
+                    size = Size(r * 2.8f, r * 1.8f),
                     style = Stroke(width = stroke, cap = StrokeCap.Round)
                 )
                 drawArc(
@@ -41,7 +46,7 @@ fun AvatarEyes(
                     sweepAngle = 140f,
                     useCenter = false,
                     topLeft = Offset(rightX - r * 1.4f, eyeY - r * 0.5f),
-                    size = androidx.compose.ui.geometry.Size(r * 2.8f, r * 1.8f),
+                    size = Size(r * 2.8f, r * 1.8f),
                     style = Stroke(width = stroke, cap = StrokeCap.Round)
                 )
             }
@@ -107,19 +112,42 @@ fun AvatarEyes(
             }
 
             else -> {
-                val openHeight = max(r * 0.35f, r * blinkFactor)
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(leftX - r, eyeY - openHeight),
-                    size = androidx.compose.ui.geometry.Size(r * 2f, openHeight * 2f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
-                )
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(rightX - r, eyeY - openHeight),
-                    size = androidx.compose.ui.geometry.Size(r * 2f, openHeight * 2f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
-                )
+                val surpriseBoost = idleSurpriseFactor * r * 0.26f
+                val tiredClamp = (idleTiredFactor * r * 0.24f) + (sleepiness * r * 0.52f)
+                val openHeight = (max(r * 0.35f, r * blinkFactor) + surpriseBoost - tiredClamp)
+                    .coerceIn(r * 0.1f, r * 1.08f)
+                val eyeWidth = (r * (1f + idleSurpriseFactor * 0.08f - idleTiredFactor * 0.08f))
+                    .coerceAtLeast(r * 0.82f)
+
+                if (sleepiness > 0.8f && state == AvatarState.Idle) {
+                    drawLine(
+                        color = color,
+                        start = Offset(leftX - eyeWidth, eyeY),
+                        end = Offset(leftX + eyeWidth, eyeY),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = color,
+                        start = Offset(rightX - eyeWidth, eyeY),
+                        end = Offset(rightX + eyeWidth, eyeY),
+                        strokeWidth = stroke,
+                        cap = StrokeCap.Round
+                    )
+                } else {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(leftX - eyeWidth, eyeY - openHeight),
+                        size = Size(eyeWidth * 2f, openHeight * 2f),
+                        cornerRadius = CornerRadius(r, r)
+                    )
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(rightX - eyeWidth, eyeY - openHeight),
+                        size = Size(eyeWidth * 2f, openHeight * 2f),
+                        cornerRadius = CornerRadius(r, r)
+                    )
+                }
             }
         }
     }

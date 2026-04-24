@@ -15,6 +15,9 @@ fun AvatarMouth(
     state: AvatarState,
     talkFactor: Float,
     idleSmileFactor: Float,
+    idleSurpriseFactor: Float,
+    idleTiredFactor: Float,
+    sleepiness: Float,
     color: Color,
     modifier: Modifier = Modifier
 ) {
@@ -25,31 +28,53 @@ fun AvatarMouth(
 
         when (state) {
             AvatarState.Idle -> {
+                val sleepy = (idleTiredFactor + sleepiness).coerceIn(0f, 1f)
+                val surprise = idleSurpriseFactor.coerceIn(0f, 1f)
                 val smile = idleSmileFactor.coerceIn(0f, 1f)
-                if (smile < 0.07f) {
-                    drawLine(
-                        color = color,
-                        start = Offset(center.x - base * 0.55f, center.y),
-                        end = Offset(center.x + base * 0.55f, center.y),
-                        strokeWidth = stroke,
-                        cap = StrokeCap.Round
-                    )
-                } else {
-                    drawArc(
-                        color = color,
-                        startAngle = 18f,
-                        sweepAngle = 144f,
-                        useCenter = false,
-                        topLeft = Offset(
-                            center.x - base * (0.7f + smile * 0.14f),
-                            center.y - base * (0.17f + smile * 0.22f)
-                        ),
-                        size = Size(
-                            base * (1.4f + smile * 0.3f),
-                            base * (0.3f + smile * 0.35f)
-                        ),
-                        style = Stroke(width = stroke, cap = StrokeCap.Round)
-                    )
+
+                when {
+                    sleepy > 0.74f -> {
+                        drawLine(
+                            color = color,
+                            start = Offset(center.x - base * 0.45f, center.y + base * 0.04f),
+                            end = Offset(center.x + base * 0.45f, center.y + base * 0.04f),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                    }
+
+                    surprise > 0.2f -> {
+                        val radius = base * (0.25f + surprise * 0.12f)
+                        drawCircle(color = color, radius = radius, center = center)
+                    }
+
+                    smile > 0.06f -> {
+                        drawArc(
+                            color = color,
+                            startAngle = 16f,
+                            sweepAngle = 148f,
+                            useCenter = false,
+                            topLeft = Offset(
+                                center.x - base * (0.72f + smile * 0.1f),
+                                center.y - base * (0.19f + smile * 0.2f)
+                            ),
+                            size = Size(
+                                base * (1.44f + smile * 0.2f),
+                                base * (0.32f + smile * 0.3f)
+                            ),
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
+
+                    else -> {
+                        drawLine(
+                            color = color,
+                            start = Offset(center.x - base * 0.55f, center.y),
+                            end = Offset(center.x + base * 0.55f, center.y),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                    }
                 }
             }
 
