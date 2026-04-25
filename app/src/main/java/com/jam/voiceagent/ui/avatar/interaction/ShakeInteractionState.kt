@@ -9,5 +9,8 @@ data class ShakeInteractionState(
     val strongShakeCount: Int = 0,
     val shakeMagnitude: Float = 0f,
     val jerkStrength: Float = 0f,
-    val cooldownRemainingMs: Long = 0L
+    val cooldownRemainingMs: Long = 0L,
+    val strongMagnitudeThreshold: Float = 0f,
+    val strongJerkThreshold: Float = 0f,
+    val strongRequiredHits: Int = 0
 )

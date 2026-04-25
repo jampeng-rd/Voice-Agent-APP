@@ -12,6 +12,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import kotlin.math.max
 
+private fun smoothStep(edge0: Float, edge1: Float, x: Float): Float {
+    val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
+}
+
 @Composable
 fun AvatarEyes(
     state: AvatarState,
@@ -144,8 +149,9 @@ fun AvatarEyes(
                     .coerceIn(r * 0.1f, r * 1.08f)
                 val eyeWidth = (r * (1f + idleSurpriseFactor * 0.08f - idleTiredFactor * 0.08f))
                     .coerceAtLeast(r * 0.82f)
-                val affectionLaugh = ((affectionLevel - 0.72f) / 0.26f).coerceIn(0f, 1f)
-                val affectionSquint = ((affectionLevel - 0.42f) / 0.4f).coerceIn(0f, 1f)
+                val joyMid = smoothStep(0.26f, 0.7f, affectionLevel)
+                val joyHigh = smoothStep(0.62f, 0.98f, affectionLevel)
+                val affectionSquint = (joyMid * 0.58f + joyHigh * 0.42f).coerceIn(0f, 1f)
 
                 if (sleepiness > 0.8f && state == AvatarState.Idle) {
                     drawLine(
@@ -162,43 +168,49 @@ fun AvatarEyes(
                         strokeWidth = stroke,
                         cap = StrokeCap.Round
                     )
-                } else if (state == AvatarState.Idle && affectionLaugh > 0.02f) {
-                    val sweep = 130f + affectionLaugh * 18f
-                    val width = r * (2.5f + affectionLaugh * 0.5f)
-                    val height = r * (1.6f + affectionLaugh * 0.35f)
-                    val raise = r * (0.26f + affectionSquint * 0.18f)
-                    drawArc(
-                        color = color,
-                        startAngle = 205f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(leftX - width / 2f, eyeY - raise - height * 0.5f),
-                        size = Size(width, height),
-                        style = Stroke(width = stroke, cap = StrokeCap.Round)
-                    )
-                    drawArc(
-                        color = color,
-                        startAngle = 205f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(rightX - width / 2f, eyeY - raise - height * 0.5f),
-                        size = Size(width, height),
-                        style = Stroke(width = stroke, cap = StrokeCap.Round)
-                    )
                 } else {
-                    val affectionShrink = affectionSquint * 0.3f
-                    drawRoundRect(
-                        color = color,
-                        topLeft = Offset(leftX - eyeWidth, eyeY - openHeight),
-                        size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
-                        cornerRadius = CornerRadius(r, r)
-                    )
-                    drawRoundRect(
-                        color = color,
-                        topLeft = Offset(rightX - eyeWidth, eyeY - openHeight),
-                        size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
-                        cornerRadius = CornerRadius(r, r)
-                    )
+                    val affectionShrink = affectionSquint * 0.4f
+                    val openEyeAlpha = (1f - joyHigh * 0.95f).coerceIn(0f, 1f)
+                    if (openEyeAlpha > 0.02f) {
+                        drawRoundRect(
+                            color = color.copy(alpha = openEyeAlpha),
+                            topLeft = Offset(leftX - eyeWidth, eyeY - openHeight),
+                            size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
+                            cornerRadius = CornerRadius(r, r)
+                        )
+                        drawRoundRect(
+                            color = color.copy(alpha = openEyeAlpha),
+                            topLeft = Offset(rightX - eyeWidth, eyeY - openHeight),
+                            size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
+                            cornerRadius = CornerRadius(r, r)
+                        )
+                    }
+
+                    if (joyHigh > 0.01f) {
+                        val sweep = 128f + joyHigh * 24f
+                        val width = r * (2.38f + joyHigh * 0.55f)
+                        val height = r * (1.5f + joyHigh * 0.35f)
+                        val raise = r * (0.22f + affectionSquint * 0.26f)
+                        val laughColor = color.copy(alpha = joyHigh)
+                        drawArc(
+                            color = laughColor,
+                            startAngle = 205f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = Offset(leftX - width / 2f, eyeY - raise - height * 0.5f),
+                            size = Size(width, height),
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                        drawArc(
+                            color = laughColor,
+                            startAngle = 205f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = Offset(rightX - width / 2f, eyeY - raise - height * 0.5f),
+                            size = Size(width, height),
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
                 }
             }
         }

@@ -10,6 +10,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 
+private fun smoothStep(edge0: Float, edge1: Float, x: Float): Float {
+    val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
+}
+
 @Composable
 fun AvatarMouth(
     state: AvatarState,
@@ -32,10 +37,10 @@ fun AvatarMouth(
             AvatarState.Idle -> {
                 val sleepy = (idleTiredFactor + sleepiness).coerceIn(0f, 1f)
                 val surprise = idleSurpriseFactor.coerceIn(0f, 1f)
-                val affectionLow = ((affectionLevel - 0.12f) / 0.3f).coerceIn(0f, 1f)
-                val affectionMid = ((affectionLevel - 0.44f) / 0.28f).coerceIn(0f, 1f)
-                val affectionHigh = ((affectionLevel - 0.76f) / 0.22f).coerceIn(0f, 1f)
-                val smile = (idleSmileFactor + affectionLow * 0.42f).coerceIn(0f, 1f)
+                val joyLow = smoothStep(0.08f, 0.42f, affectionLevel)
+                val joyMid = smoothStep(0.34f, 0.76f, affectionLevel)
+                val joyHigh = smoothStep(0.68f, 1f, affectionLevel)
+                val smile = (idleSmileFactor * 0.45f + joyLow * 0.55f + joyMid * 0.35f).coerceIn(0f, 1f)
 
                 when {
                     isDizzy -> {
@@ -63,60 +68,32 @@ fun AvatarMouth(
                         drawCircle(color = color, radius = radius, center = center)
                     }
 
-                    affectionHigh > 0.04f -> {
-                        val width = base * (1.22f + affectionHigh * 0.42f)
-                        val height = base * (0.6f + affectionHigh * 0.5f)
-                        drawOval(
-                            color = color,
-                            topLeft = Offset(center.x - width / 2f, center.y - height / 2f),
-                            size = Size(width, height)
-                        )
-                    }
-
-                    affectionMid > 0.05f -> {
-                        drawArc(
-                            color = color,
-                            startAngle = 12f,
-                            sweepAngle = 156f,
-                            useCenter = false,
-                            topLeft = Offset(
-                                center.x - base * (0.92f + affectionMid * 0.18f),
-                                center.y - base * (0.35f + affectionMid * 0.14f)
-                            ),
-                            size = Size(
-                                base * (1.84f + affectionMid * 0.34f),
-                                base * (0.78f + affectionMid * 0.22f)
-                            ),
-                            style = Stroke(width = stroke, cap = StrokeCap.Round)
-                        )
-                    }
-
-                    smile > 0.06f -> {
-                        drawArc(
-                            color = color,
-                            startAngle = 16f,
-                            sweepAngle = 148f,
-                            useCenter = false,
-                            topLeft = Offset(
-                                center.x - base * (0.72f + smile * 0.1f),
-                                center.y - base * (0.19f + smile * 0.2f)
-                            ),
-                            size = Size(
-                                base * (1.44f + smile * 0.2f),
-                                base * (0.32f + smile * 0.3f)
-                            ),
-                            style = Stroke(width = stroke, cap = StrokeCap.Round)
-                        )
-                    }
-
                     else -> {
-                        drawLine(
-                            color = color,
-                            start = Offset(center.x - base * 0.55f, center.y),
-                            end = Offset(center.x + base * 0.55f, center.y),
-                            strokeWidth = stroke,
-                            cap = StrokeCap.Round
+                        val openMouthAlpha = joyHigh * 0.92f
+                        drawArc(
+                            color = color.copy(alpha = (1f - openMouthAlpha * 0.82f).coerceIn(0f, 1f)),
+                            startAngle = 14f - joyMid * 4f,
+                            sweepAngle = 150f + joyMid * 10f,
+                            useCenter = false,
+                            topLeft = Offset(
+                                center.x - base * (0.76f + smile * 0.36f + joyMid * 0.26f),
+                                center.y - base * (0.2f + smile * 0.24f + joyMid * 0.14f)
+                            ),
+                            size = Size(
+                                base * (1.52f + smile * 0.76f + joyMid * 0.42f),
+                                base * (0.38f + smile * 0.46f + joyMid * 0.3f)
+                            ),
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
                         )
+                        if (openMouthAlpha > 0.01f) {
+                            val width = base * (1.02f + joyMid * 0.3f + joyHigh * 0.72f)
+                            val height = base * (0.34f + joyMid * 0.12f + joyHigh * 0.7f)
+                            drawOval(
+                                color = color.copy(alpha = openMouthAlpha),
+                                topLeft = Offset(center.x - width / 2f, center.y - height / 2f),
+                                size = Size(width, height)
+                            )
+                        }
                     }
                 }
             }

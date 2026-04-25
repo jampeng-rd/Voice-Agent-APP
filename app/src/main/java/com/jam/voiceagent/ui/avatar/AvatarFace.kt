@@ -149,9 +149,9 @@ fun AvatarFace(
         animationSpec = tween(durationMillis = 420),
         label = "affection-warmth"
     )
-    val warmPink = lerp(Color(0xFFF7B6B2), Color(0xFFF3A0A0), affectionWarmth * 0.62f)
-    val affectionHeadColor = lerp(headColor, warmPink, affectionWarmth * 0.6f)
-    val effectiveHeadColor = lerp(affectionHeadColor, Color(0xFF1F2B2A), sleepFactor * 0.92f)
+    val warmPink = lerp(Color(0xFFF7B6B2), Color(0xFFF3A0A0), affectionWarmth * 0.78f)
+    val affectionHeadColor = lerp(headColor, warmPink, affectionWarmth * 0.72f)
+    val effectiveHeadColor = lerp(affectionHeadColor, Color(0xFF161D1A), sleepFactor * 0.9f)
     val effectiveFeatureColor = lerp(featureColor, Color(0xFFE6F1EE), sleepFactor * 0.88f)
     val effectiveBlink = when {
         isDizzy -> 0.16f
@@ -163,8 +163,8 @@ fun AvatarFace(
         else -> blink.value
     }
 
-    val animatedTiltX by animateFloatAsState(tiltX.coerceIn(-1f, 1f), tween(180), label = "tilt-x")
-    val animatedTiltY by animateFloatAsState(tiltY.coerceIn(-1f, 1f), tween(180), label = "tilt-y")
+    val animatedTiltX by animateFloatAsState(tiltX.coerceIn(-1f, 1f), tween(260), label = "tilt-x")
+    val animatedTiltY by animateFloatAsState(tiltY.coerceIn(-1f, 1f), tween(260), label = "tilt-y")
     val animatedBounceX by animateFloatAsState(bounceOffsetX, tween(120), label = "bounce-x")
     val animatedBounce by animateFloatAsState(bounceOffsetY, tween(180), label = "bounce-y")
 
@@ -175,9 +175,9 @@ fun AvatarFace(
                 y = (floating.value + animatedBounce).roundToInt().dp
             )
             .graphicsLayer {
-                translationX = animatedTiltX * 26f
-                translationY = animatedTiltY * 15f
-                rotationZ = animatedTiltX * 9f
+                translationX = animatedTiltX * 42f
+                translationY = animatedTiltY * 26f
+                rotationZ = animatedTiltX * 14f
             }
             .size(size),
         contentAlignment = Alignment.Center
@@ -189,7 +189,7 @@ fun AvatarFace(
                     .scale(if (affectionWarmth > 0.25f) pulse.value else 1f)
                     .alpha(0.42f + affectionWarmth * 0.08f)
                     .background(
-                        lerp(glowColor, Color(0xFFF5B6C4), affectionWarmth * 0.7f),
+                        lerp(glowColor, Color(0xFFF5B6C4), affectionWarmth * 0.86f),
                         CircleShape
                     )
             )

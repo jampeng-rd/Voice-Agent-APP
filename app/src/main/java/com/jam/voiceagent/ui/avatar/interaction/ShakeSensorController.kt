@@ -25,9 +25,9 @@ class ShakeSensorController(
     private var previousTimestampNs = 0L
 
     private val baseThreshold = 2.0f
-    private val strongMagnitudeThreshold = 19.5f
-    private val strongJerkThreshold = 95f
-    private val minConsecutiveStrongHits = 3
+    private val strongMagnitudeThreshold = 16.8f
+    private val strongJerkThreshold = 72f
+    private val minConsecutiveStrongHits = 4
 
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -51,8 +51,8 @@ class ShakeSensorController(
             previousMagnitude = shakeMagnitude
             previousTimestampNs = event.timestamp
 
-            val normalizedShake = ((shakeMagnitude - baseThreshold) / 18f).coerceIn(0f, 1.6f)
-            val normalizedJerk = (jerk / 220f).coerceIn(0f, 1.8f)
+            val normalizedShake = ((shakeMagnitude - baseThreshold) / 16f).coerceIn(0f, 1.8f)
+            val normalizedJerk = (jerk / 180f).coerceIn(0f, 2.2f)
 
             val tiltX = (-gravityX / SensorManager.GRAVITY_EARTH).coerceIn(-1f, 1f)
             val tiltY = (gravityY / SensorManager.GRAVITY_EARTH).coerceIn(-1f, 1f)
@@ -78,7 +78,10 @@ class ShakeSensorController(
                     strongShakeCount = strongShakeCount,
                     shakeMagnitude = shakeMagnitude,
                     jerkStrength = normalizedJerk,
-                    cooldownRemainingMs = 0L
+                    cooldownRemainingMs = 0L,
+                    strongMagnitudeThreshold = strongMagnitudeThreshold,
+                    strongJerkThreshold = strongJerkThreshold,
+                    strongRequiredHits = minConsecutiveStrongHits
                 )
             )
         }

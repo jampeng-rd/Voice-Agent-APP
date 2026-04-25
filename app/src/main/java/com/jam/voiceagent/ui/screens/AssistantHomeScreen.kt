@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,6 +76,7 @@ import com.jam.voiceagent.ui.components.EmotionButtons
 import com.jam.voiceagent.ui.voice.ListeningIndicator
 import kotlinx.coroutines.delay
 import kotlin.math.hypot
+import kotlin.random.Random
 
 @Composable
 fun AssistantHomeScreen() {
@@ -88,6 +90,7 @@ fun AssistantHomeScreen() {
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val touchAffectionHandler = rememberTouchAffectionHandler()
 
@@ -130,12 +133,19 @@ fun AssistantHomeScreen() {
     val resetIdleTimer = { lastInteractionMs = System.currentTimeMillis() }
 
     var inStrongShakeSession by remember { mutableStateOf(false) }
+    var bounceStartedInSession by remember { mutableStateOf(false) }
     var lastStrongShakeSeenMs by remember { mutableLongStateOf(0L) }
     var shakeCooldownUntilMs by remember { mutableLongStateOf(0L) }
     var shakeCooldownRemainingMs by remember { mutableLongStateOf(0L) }
+    var dizzyNonce by remember { mutableLongStateOf(0L) }
     var isDizzy by remember { mutableStateOf(false) }
     val bounceOffsetX = remember { Animatable(0f) }
     val bounceOffsetY = remember { Animatable(0f) }
+    val shakeEndDebounceMs = 480L
+    val shakeCooldownMs = 4_800L
+
+    val bounceRangeX = ((configuration.screenWidthDp - 220f) * 0.48f).coerceIn(42f, 140f)
+    val bounceRangeY = ((configuration.screenHeightDp - 420f) * 0.36f).coerceIn(56f, 180f)
 
     val cooldownActive = shakeCooldownRemainingMs > 0L
     val strongShakeActive = shakeState.isStrongShake && !cooldownActive && !isDizzy
@@ -143,42 +153,58 @@ fun AssistantHomeScreen() {
     LaunchedEffect(strongShakeActive) {
         if (strongShakeActive) {
             resetIdleTimer()
+            if (!inStrongShakeSession) {
+                bounceStartedInSession = false
+            }
             inStrongShakeSession = true
             lastStrongShakeSeenMs = System.currentTimeMillis()
+            return@LaunchedEffect
         }
-    }
 
-    LaunchedEffect(inStrongShakeSession, strongShakeActive, isDizzy) {
-        if (!inStrongShakeSession || strongShakeActive || isDizzy) return@LaunchedEffect
-        delay(420)
+        if (!inStrongShakeSession || isDizzy) return@LaunchedEffect
+
+        delay(shakeEndDebounceMs)
         val now = System.currentTimeMillis()
-        if (inStrongShakeSession && !strongShakeActive && now - lastStrongShakeSeenMs >= 380L && !isDizzy) {
+        if (inStrongShakeSession && !strongShakeActive && now - lastStrongShakeSeenMs >= shakeEndDebounceMs) {
             inStrongShakeSession = false
-            isDizzy = true
-            state = AvatarState.Idle
-            shakeCooldownUntilMs = now + 4_800L
-            delay(3000)
-            isDizzy = false
-            state = AvatarState.Idle
+            shakeCooldownUntilMs = now + shakeCooldownMs
+            if (bounceStartedInSession) {
+                dizzyNonce = now
+            } else {
+                bounceOffsetX.animateTo(0f, animationSpec = tween(220))
+                bounceOffsetY.animateTo(0f, animationSpec = tween(220))
+            }
         }
     }
 
-    LaunchedEffect(inStrongShakeSession, strongShakeActive) {
+    LaunchedEffect(inStrongShakeSession, strongShakeActive, bounceRangeX, bounceRangeY) {
         if (inStrongShakeSession && strongShakeActive) {
             while (inStrongShakeSession && strongShakeActive) {
-                bounceOffsetX.animateTo(12f, animationSpec = tween(90))
-                bounceOffsetY.animateTo(-15f, animationSpec = tween(90))
-                bounceOffsetX.animateTo(-10f, animationSpec = tween(90))
-                bounceOffsetY.animateTo(10f, animationSpec = tween(90))
-                bounceOffsetX.animateTo(6f, animationSpec = tween(90))
-                bounceOffsetY.animateTo(-7f, animationSpec = tween(90))
-                bounceOffsetX.animateTo(0f, animationSpec = tween(100))
-                bounceOffsetY.animateTo(0f, animationSpec = tween(100))
+                bounceStartedInSession = true
+                val targetX = Random.nextFloat() * (bounceRangeX * 2f) - bounceRangeX
+                val targetY = Random.nextFloat() * (bounceRangeY * 2f) - bounceRangeY
+                bounceOffsetX.animateTo(targetX, animationSpec = tween(105))
+                bounceOffsetY.animateTo(targetY, animationSpec = tween(105))
             }
         } else {
-            bounceOffsetX.animateTo(0f, animationSpec = tween(170))
-            bounceOffsetY.animateTo(0f, animationSpec = tween(170))
+            bounceOffsetX.animateTo(0f, animationSpec = tween(240))
+            bounceOffsetY.animateTo(0f, animationSpec = tween(240))
         }
+    }
+
+    LaunchedEffect(dizzyNonce) {
+        if (dizzyNonce <= 0L) return@LaunchedEffect
+        isDizzy = true
+        state = AvatarState.Idle
+        bounceOffsetX.snapTo(0f)
+        bounceOffsetY.snapTo(0f)
+        delay(3000)
+        isDizzy = false
+        inStrongShakeSession = false
+        bounceStartedInSession = false
+        state = AvatarState.Idle
+        bounceOffsetX.animateTo(0f, animationSpec = tween(200))
+        bounceOffsetY.animateTo(0f, animationSpec = tween(200))
     }
 
     LaunchedEffect(Unit) {
@@ -406,6 +432,7 @@ fun AssistantHomeScreen() {
                                     "M:${"%.1f".format(shakeState.shakeMagnitude)} " +
                                     "J:${"%.2f".format(shakeState.jerkStrength)} " +
                                     "C:${shakeState.strongShakeCount} " +
+                                    "TH:${"%.1f".format(shakeState.strongMagnitudeThreshold)}/${"%.0f".format(shakeState.strongJerkThreshold)}/${shakeState.strongRequiredHits} " +
                                     "CD:${"%.1f".format(shakeCooldownRemainingMs / 1000f)}s " +
                                     "D:${if (isDizzy) "Y" else "N"}",
                             style = MaterialTheme.typography.labelSmall,
