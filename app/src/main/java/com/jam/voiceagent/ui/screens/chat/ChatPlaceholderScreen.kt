@@ -6,17 +6,19 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ fun ChatPlaceholderScreen(
     onChatClick: () -> Unit,
     onUserClick: () -> Unit
 ) {
+    val listState = rememberLazyListState()
     val fakeHistory = remember {
         mutableStateListOf(
             FakeChatItem(1, "今天下午三點提醒我開會，並在會前十分鐘再提醒一次。"),
@@ -103,14 +105,18 @@ fun ChatPlaceholderScreen(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "本頁僅用於 NAV-01.2 列表與刪除互動原型，尚未串接 API。",
+                text = "本頁僅用於 NAV-01.3 列表與刪除互動原型，尚未串接 API。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(
                     items = fakeHistory,
@@ -170,25 +176,15 @@ private fun ChatHistoryRow(
                     .align(Alignment.CenterEnd)
                     .width(revealWidth)
                     .height(60.dp)
-                    .background(MaterialTheme.colorScheme.errorContainer),
-                contentAlignment = Alignment.CenterEnd
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .clickable(onClick = onDelete),
+                contentAlignment = Alignment.Center
             ) {
-                TextButton(
-                    onClick = onDelete,
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .height(42.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.error,
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                ) {
-                    Text(
-                        text = "刪除",
-                        color = MaterialTheme.colorScheme.onError,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                Text(
+                    text = "刪除",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
 
@@ -232,7 +228,7 @@ private fun ChatHistoryRow(
                     text = text,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
