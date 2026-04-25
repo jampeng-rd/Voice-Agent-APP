@@ -5,14 +5,22 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.jam.voiceagent.data.local.SessionStore
+import com.jam.voiceagent.data.local.TokenStore
+import com.jam.voiceagent.data.network.ApiClient
+import com.jam.voiceagent.data.repository.AuthRepository
+import com.jam.voiceagent.data.repository.ChatRepository
 import com.jam.voiceagent.ui.screens.AssistantHomeScreen
 import com.jam.voiceagent.ui.screens.auth.LoginScreen
 import com.jam.voiceagent.ui.screens.auth.RegisterScreen
@@ -20,8 +28,29 @@ import com.jam.voiceagent.ui.screens.chat.ChatPlaceholderScreen
 
 @Composable
 fun AppRoot() {
+    val context = LocalContext.current
+    val tokenStore = remember(context) { TokenStore(context) }
+    val sessionStore = remember(context) { SessionStore(context) }
+    val authRepository = remember(context) {
+        AuthRepository(
+            authApi = ApiClient.authApi,
+            tokenStore = tokenStore
+        )
+    }
+    val chatRepository = remember(context) {
+        ChatRepository(
+            chatApi = ApiClient.chatApi,
+            tokenStore = tokenStore,
+            sessionStore = sessionStore
+        )
+    }
+
     var route by rememberSaveable { mutableStateOf(AppRoute.Home) }
     var isLoggedIn by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(authRepository) {
+        isLoggedIn = authRepository.hasToken()
+    }
 
     val goHome: () -> Unit = { route = AppRoute.Home }
     val goChat: () -> Unit = {
@@ -29,6 +58,8 @@ fun AppRoot() {
     }
     val userAction: () -> Unit = {
         if (isLoggedIn) {
+            authRepository.clearToken()
+            chatRepository.clearSession()
             isLoggedIn = false
             route = AppRoute.Home
         } else {
@@ -43,7 +74,12 @@ fun AppRoot() {
                 isLoggedIn = isLoggedIn,
                 onNavigateHome = goHome,
                 onNavigateChat = goChat,
-                onUserAction = userAction
+                onUserAction = userAction,
+                chatRepository = chatRepository,
+                onRequireLogin = {
+                    isLoggedIn = false
+                    route = AppRoute.Login
+                }
             )
         }
 
@@ -53,6 +89,7 @@ fun AppRoot() {
                 onHomeClick = goHome,
                 onChatClick = goChat,
                 onUserClick = userAction,
+                authRepository = authRepository,
                 onGoRegister = { route = AppRoute.Register },
                 onLoginSuccess = {
                     isLoggedIn = true
@@ -67,6 +104,7 @@ fun AppRoot() {
                 onHomeClick = goHome,
                 onChatClick = goChat,
                 onUserClick = userAction,
+                authRepository = authRepository,
                 onBackLogin = { route = AppRoute.Login },
                 onRegisterSuccess = { route = AppRoute.Login }
             )
@@ -79,6 +117,7 @@ fun AppRoot() {
                     onHomeClick = goHome,
                     onChatClick = goChat,
                     onUserClick = userAction,
+                    authRepository = authRepository,
                     onGoRegister = { route = AppRoute.Register },
                     onLoginSuccess = {
                         isLoggedIn = true

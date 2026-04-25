@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,11 +65,13 @@ import com.jam.voiceagent.ui.avatar.AvatarState
 import com.jam.voiceagent.ui.avatar.interaction.ShakeInteractionState
 import com.jam.voiceagent.ui.avatar.interaction.ShakeSensorController
 import com.jam.voiceagent.ui.avatar.interaction.rememberTouchAffectionHandler
+import com.jam.voiceagent.data.repository.ChatRepository
 import com.jam.voiceagent.ui.components.ChatInputBar
 import com.jam.voiceagent.ui.components.EmotionButtons
 import com.jam.voiceagent.ui.components.TopRightQuickMenu
 import com.jam.voiceagent.ui.voice.ListeningIndicator
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.hypot
 import kotlin.random.Random
 
@@ -77,12 +80,17 @@ fun AssistantHomeScreen(
     isLoggedIn: Boolean,
     onNavigateHome: () -> Unit,
     onNavigateChat: () -> Unit,
-    onUserAction: () -> Unit
+    onUserAction: () -> Unit,
+    chatRepository: ChatRepository,
+    onRequireLogin: () -> Unit
 ) {
     var state by rememberSaveable { mutableStateOf(AvatarState.Idle) }
     var isTextInputMode by rememberSaveable { mutableStateOf(false) }
     var isMicPressed by rememberSaveable { mutableStateOf(false) }
     var showDebugPanel by rememberSaveable { mutableStateOf(false) }
+    var inputText by rememberSaveable { mutableStateOf("") }
+    var replyText by rememberSaveable { mutableStateOf("") }
+    var isSendingText by rememberSaveable { mutableStateOf(false) }
     var lastInteractionMs by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
@@ -90,6 +98,7 @@ fun AssistantHomeScreen(
     val configuration = LocalConfiguration.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val touchAffectionHandler = rememberTouchAffectionHandler()
+    val scope = rememberCoroutineScope()
 
     var shakeState by remember {
         mutableStateOf(
@@ -229,8 +238,48 @@ fun AssistantHomeScreen(
     val displayText = when {
         isDizzy -> "暈頭中…"
         isSleeping -> "z.. Z.. z..."
+        state == AvatarState.Listening -> AvatarState.Listening.statusText
+        state == AvatarState.Thinking -> AvatarState.Thinking.statusText
+        state == AvatarState.Speaking -> AvatarState.Speaking.statusText
         state == AvatarState.Idle && touchAffectionHandler.affectionLevel > 0.75f -> "好舒服呀～"
+        replyText.isNotBlank() -> replyText
         else -> state.statusText
+    }
+
+    fun sendTextMessage() {
+        if (isSendingText) return
+        val requestText = inputText.trim()
+        if (requestText.isBlank()) return
+
+        resetIdleTimer()
+        inputText = ""
+        isSendingText = true
+        state = AvatarState.Thinking
+
+        scope.launch {
+            val result = chatRepository.sendText(requestText)
+            isSendingText = false
+
+            if (result.isSuccess) {
+                replyText = result.aiReply.orEmpty()
+                state = AvatarState.Speaking
+                delay(900)
+                if (state == AvatarState.Speaking) {
+                    state = AvatarState.Idle
+                }
+            } else {
+                replyText = result.errorMessage ?: "目前連線有點問題，請稍後再試。"
+                state = AvatarState.Confused
+                if (result.requiresLogin) {
+                    onRequireLogin()
+                    return@launch
+                }
+                delay(900)
+                if (state == AvatarState.Confused) {
+                    state = AvatarState.Idle
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -349,6 +398,10 @@ fun AssistantHomeScreen(
 
             if (isTextInputMode) {
                 ChatInputBar(
+                    text = inputText,
+                    onTextChange = { inputText = it },
+                    onSendClick = ::sendTextMessage,
+                    enabled = !isSendingText,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 98.dp),
@@ -381,6 +434,8 @@ fun AssistantHomeScreen(
                     isMicPressed = false
                     state = AvatarState.Idle
                 },
+                onTextSend = ::sendTextMessage,
+                isTextSendEnabled = inputText.isNotBlank() && !isSendingText,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
@@ -466,6 +521,8 @@ private fun BottomInputControls(
     onMicPressState: (Boolean) -> Unit,
     onSwitchToTextMode: () -> Unit,
     onSwitchToVoiceMode: () -> Unit,
+    onTextSend: () -> Unit,
+    isTextSendEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     val transition = rememberInfiniteTransition(label = "record-pulse")
@@ -487,7 +544,8 @@ private fun BottomInputControls(
     ) {
         if (isTextInputMode) {
             IconButton(
-                onClick = {},
+                onClick = onTextSend,
+                enabled = isTextSendEnabled,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 8.dp)

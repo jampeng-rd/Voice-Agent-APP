@@ -126,15 +126,16 @@
 
 ## 6. 已知限制
 
-- 尚未串接 `voice-agent-server` API（含 guest/chat/voice round）
+- 已串接 `POST /api/auth/register`、`POST /api/auth/login`、`POST /api/chat`（文字模式）
+- 目前未串接 guest token（`/api/auth/guest`）
 - 尚未實作真正語音錄音與播放
-- AUTH/NAV 目前為 in-memory 假流程，未做 token、SharedPreferences、資料庫或正式驗證
-- Chat 頁目前為假資料頁，未串接 conversations API
+- Chat 歷史頁目前仍為假資料頁，未串接 conversations API
 - Chat 左滑刪除目前僅本地 UI 原型，未串接刪除 API
 - 表情切換目前由開發用 chips 手動控制，未與語音流程綁定
 - 強搖門檻目前以真機體感做保守值，仍需依不同裝置型號微調
 - portrait 為現階段測試穩定性設定，後續若支援橫式需重新設計感測與版面策略
 - 強搖彈跳與觸發參數仍需依不同更新率感測器（60/120Hz）校正
+- `android:usesCleartextTraffic="true"` 僅為開發階段支援 LAN HTTP 測試，正式環境建議改為 HTTPS
 
 ## 7. 下一階段預計（Phase Android-UI-02.2 / API 前）
 
@@ -274,3 +275,25 @@
 - 右側刪除區改為單層淺紅整塊按鈕，文字「刪除」置中顯示
 - 移除原本刪除區內第二層深紅按鈕，簡化成單層視覺
 - 未展開時不顯示任何紅色刪除背景，維持列表卡片淡色外觀
+
+## 23. Phase Android-API-01 Auth + Text Chat API 串接摘要
+
+- 新增 `data/network`、`data/repository`、`data/local`、`data/model` 最小資料層
+- Auth 流程改為真 API：
+  - `POST /api/auth/register`
+  - `POST /api/auth/login`
+- Login 成功後保存 server 回傳 token（SharedPreferences）
+- Text mode 送出改為呼叫 `POST /api/chat`
+  - Header: `Authorization: Bearer <token>`
+  - Body: `{ "session_id": "<uuid>", "text": "<input>" }`
+- `session_id` 使用 UUID 產生並保存於 SharedPreferences，同一段對話持續沿用
+- Home 文字流程綁定角色狀態：
+  - 送出中：`Thinking`
+  - 收到回覆：短暫 `Speaking` 後回 `Idle`
+  - 失敗：顯示繁中錯誤並切 `Confused`
+- 保留 UI-02 角色互動核心（觸摸、傾斜、強搖、dizzy、睡著）不重寫
+- 新增集中式 `BASE_URL` 設定：
+  - `BuildConfig.API_BASE_URL`
+  - 來源：`local.properties` 的 `VOICE_AGENT_BASE_URL`
+  - 預設 fallback：`http://10.0.2.2:8000`
+  - 真機可改為 `http://192.168.x.x:8000`

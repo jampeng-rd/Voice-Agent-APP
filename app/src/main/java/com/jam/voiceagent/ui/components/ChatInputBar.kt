@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NorthEast
@@ -14,31 +16,33 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun ChatInputBar(
+    text: String,
+    onTextChange: (String) -> Unit,
+    onSendClick: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
     borderColor: Color,
     textColor: Color,
     placeholderColor: Color,
     iconColor: Color
 ) {
-    val text = remember { mutableStateOf("") }
     val compactTextStyle = TextStyle(
         fontSize = 14.sp,
         lineHeight = 18.sp
     )
 
     OutlinedTextField(
-        value = text.value,
-        onValueChange = { text.value = it },
+        value = text,
+        onValueChange = onTextChange,
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 52.dp)
@@ -53,6 +57,10 @@ fun ChatInputBar(
             )
         },
         singleLine = true,
+        enabled = enabled,
+        maxLines = 1,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        keyboardActions = KeyboardActions(onSend = { onSendClick() }),
         textStyle = compactTextStyle,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = borderColor,
@@ -64,7 +72,8 @@ fun ChatInputBar(
         ),
         trailingIcon = {
             IconButton(
-                onClick = {},
+                onClick = onSendClick,
+                enabled = enabled && text.isNotBlank(),
                 modifier = Modifier.size(34.dp)
             ) {
                 Icon(
