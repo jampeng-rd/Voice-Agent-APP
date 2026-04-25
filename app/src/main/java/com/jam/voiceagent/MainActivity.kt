@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.jam.voiceagent.ui.screens.AssistantHomeScreen
+import com.jam.voiceagent.ui.navigation.AppRoot
 import com.jam.voiceagent.ui.theme.VoiceAgentTheme
 
 class MainActivity : ComponentActivity() {
@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             VoiceAgentTheme {
-                AssistantHomeScreen()
+                AppRoot()
             }
         }
     }

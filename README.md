@@ -51,9 +51,27 @@
 ### 右上設定快捷選單
 
 - 右上角固定設定齒輪 icon
-- 點擊後向左展開單一 pill 容器快捷選單（Home / 帳號入口）
-- 帳號入口目前為假狀態：未登入顯示使用者圖示，切換後可顯示登出圖示
-- Home 與帳號 icon 共用同一個 pill 背景，不使用各自獨立底色
+- 點擊後向左展開單一 pill 容器快捷選單（Home / Chat / User 入口）
+- Home / Chat / User icon 共用同一個 pill 背景，不使用各自獨立底色
+
+### AUTH / NAV（Phase Android-AUTH-01 + NAV-01）
+
+- 新增 in-memory 假登入 / 假註冊流程，不串接任何 API
+- App 啟動預設進入 Home；右上 User 未登入時導向 Login
+- Login / Register：輸入非空 email / password 即視為成功（僅本次 App session 有效）
+- Login 成功後導向 Chat 假資料頁；Chat 提供回 Home 與登出
+- 登出會清除本地記憶體登入狀態並回 Home
+
+### AUTH / NAV（Phase Android-AUTH/NAV-01.1 收斂）
+
+- 右上快捷選單 icon 間距與尺寸加大，降低誤按
+- 快捷選單 Chat icon 改為更明確的對話 icon
+- Home / Login / Register / Chat 全頁保留同一套右上快捷選單
+- Login / Register 內容垂直置中並沿用 design system 背景色
+- Login 移除「回到主畫面」按鈕；回 Home 改走右上 Home 快捷
+- Register 主按鈕文字改為「註冊」，保留「回到登入」
+- Chat 假資料頁改為歷史聊天列表樣式，移除底部回 Home/登出按鈕
+- Chat 列表支援左滑露出「刪除」按鈕，點擊後從本地假列表移除
 
 ### 表情切換控制區（Debug）
 
@@ -84,12 +102,23 @@
 13. 大力搖晃後確認 dizzy 持續約 5 秒，結束後回 Idle 且彈跳位移歸零。
 14. 靜置約 1 分鐘，確認角色臉逐漸變暗接近睡著，文字改為 `z.. Z.. z...`；任意互動後恢復正常。
 15. 切到說話中，確認 waveform 位置比先前更下方、振幅更明顯，但不會把角色臉推動。
+16. 點右上齒輪展開快捷選單，確認有 Home / Chat / User 三入口。
+17. 未登入點 User，確認進入 Login；點前往註冊可到 Register。
+18. Login/ Register 輸入非空欄位可成功；Login 成功後進入 Chat 假資料頁。
+19. Chat 點登出後回 Home，重新進入 App（重開）不保留登入狀態。
+20. Login / Register 內容應垂直置中，且頁面右上仍保留快捷選單。
+21. Chat 頁顯示多筆單行歷史聊天紀錄，長文字會截斷顯示 `...`。
+22. 對任一聊天紀錄向左滑，確認右側露出刪除按鈕；點刪除後該列移除。
 
 ## 5. 專案結構說明
 
 主要 UI 原型集中在以下區域：
 
 - `app/src/main/java/com/jam/voiceagent/ui/screens/AssistantHomeScreen.kt`
+- `app/src/main/java/com/jam/voiceagent/ui/navigation/AppRoot.kt`
+- `app/src/main/java/com/jam/voiceagent/ui/navigation/AppRoute.kt`
+- `app/src/main/java/com/jam/voiceagent/ui/screens/auth/`
+- `app/src/main/java/com/jam/voiceagent/ui/screens/chat/`
 - `app/src/main/java/com/jam/voiceagent/ui/avatar/`
 - `app/src/main/java/com/jam/voiceagent/ui/components/`
 - `app/src/main/java/com/jam/voiceagent/ui/voice/`
@@ -99,8 +128,9 @@
 
 - 尚未串接 `voice-agent-server` API（含 guest/chat/voice round）
 - 尚未實作真正語音錄音與播放
-- 右上快捷選單目前為 UI 假互動，未做正式頁面切換
-- 帳號入口目前為假登入狀態，未做真正登入流程
+- AUTH/NAV 目前為 in-memory 假流程，未做 token、SharedPreferences、資料庫或正式驗證
+- Chat 頁目前為假資料頁，未串接 conversations API
+- Chat 左滑刪除目前僅本地 UI 原型，未串接刪除 API
 - 表情切換目前由開發用 chips 手動控制，未與語音流程綁定
 - 強搖門檻目前以真機體感做保守值，仍需依不同裝置型號微調
 - portrait 為現階段測試穩定性設定，後續若支援橫式需重新設計感測與版面策略
@@ -208,3 +238,22 @@
 - 按住麥克風進入聆聽中時，角色外圍改為多層 concentric glow / pulse，聆聽辨識更明確
 - 說話中 waveform 再下移且振幅動態更清楚，維持細窄圓角 bar，不推動角色臉位置
 - tilt 偏移與旋轉幅度再提高，保留平滑過渡與 portrait 固定
+
+## 19. Phase Android-AUTH-01 + NAV-01 摘要
+
+- 新增最小路由容器（in-memory）：Home / Login / Register / Chat
+- App 啟動預設進入 Home
+- 右上快捷選單改為 Home / Chat / User 入口
+- 未登入點 User 進 Login；已登入點 User 執行登出並回 Home
+- Login / Register 採假流程：非空 email/password 視為成功，不串 API
+- Login 成功後僅在當前 App session 設為 `isLoggedIn=true`，導到 Chat 假資料頁
+- Chat 頁提供假資料列表、回 Home 與登出，登出會清除 session 內登入狀態
+
+## 20. Phase Android-AUTH/NAV-01.1 UI 收斂摘要
+
+- 右上快捷選單（Home / Chat / User）在所有頁面統一可用，icon 間距與尺寸加大
+- Chat icon 改為更清楚的對話圖示，提升辨識度
+- Login / Register 內容垂直置中並沿用主背景色
+- Login 移除回主畫面按鈕；Register 主按鈕文案改為「註冊」
+- Chat 頁改為歷史聊天列表樣式，移除底部回 Home/登出按鈕
+- 每筆歷史聊天支援左滑露出刪除按鈕，刪除後直接從本地假列表移除

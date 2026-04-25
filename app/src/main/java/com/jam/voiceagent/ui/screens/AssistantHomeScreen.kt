@@ -1,10 +1,6 @@
 package com.jam.voiceagent.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -32,12 +28,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NorthEast
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,18 +66,22 @@ import com.jam.voiceagent.ui.avatar.interaction.ShakeSensorController
 import com.jam.voiceagent.ui.avatar.interaction.rememberTouchAffectionHandler
 import com.jam.voiceagent.ui.components.ChatInputBar
 import com.jam.voiceagent.ui.components.EmotionButtons
+import com.jam.voiceagent.ui.components.TopRightQuickMenu
 import com.jam.voiceagent.ui.voice.ListeningIndicator
 import kotlinx.coroutines.delay
 import kotlin.math.hypot
 import kotlin.random.Random
 
 @Composable
-fun AssistantHomeScreen() {
+fun AssistantHomeScreen(
+    isLoggedIn: Boolean,
+    onNavigateHome: () -> Unit,
+    onNavigateChat: () -> Unit,
+    onUserAction: () -> Unit
+) {
     var state by rememberSaveable { mutableStateOf(AvatarState.Idle) }
     var isTextInputMode by rememberSaveable { mutableStateOf(false) }
     var isMicPressed by rememberSaveable { mutableStateOf(false) }
-    var showSettingsQuickMenu by rememberSaveable { mutableStateOf(false) }
-    var isLoggedIn by rememberSaveable { mutableStateOf(false) }
     var showDebugPanel by rememberSaveable { mutableStateOf(false) }
     var lastInteractionMs by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -248,20 +245,18 @@ fun AssistantHomeScreen() {
                 .padding(innerPadding)
         ) {
             TopRightQuickMenu(
-                showMenu = showSettingsQuickMenu,
                 isLoggedIn = isLoggedIn,
-                onToggleMenu = {
-                    resetIdleTimer()
-                    showSettingsQuickMenu = !showSettingsQuickMenu
-                },
                 onHomeClick = {
                     resetIdleTimer()
-                    showSettingsQuickMenu = false
+                    onNavigateHome()
                 },
-                onAccountClick = {
+                onChatClick = {
                     resetIdleTimer()
-                    isLoggedIn = !isLoggedIn
-                    showSettingsQuickMenu = false
+                    onNavigateChat()
+                },
+                onUserClick = {
+                    resetIdleTimer()
+                    onUserAction()
                 },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -459,80 +454,6 @@ fun AssistantHomeScreen() {
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TopRightQuickMenu(
-    showMenu: Boolean,
-    isLoggedIn: Boolean,
-    onToggleMenu: () -> Unit,
-    onHomeClick: () -> Unit,
-    onAccountClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        AnimatedVisibility(
-            visible = showMenu,
-            enter = fadeIn(tween(150)) + expandHorizontally(
-                animationSpec = tween(180),
-                expandFrom = Alignment.End
-            ),
-            exit = fadeOut(tween(100)) + shrinkHorizontally(
-                animationSpec = tween(140),
-                shrinkTowards = Alignment.End
-            )
-        ) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.9f),
-                tonalElevation = 0.dp,
-                shadowElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Home,
-                        contentDescription = "Home 快捷",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clickable(onClick = onHomeClick)
-                    )
-                    Icon(
-                        imageVector = if (isLoggedIn) Icons.AutoMirrored.Filled.Logout else Icons.Filled.Person,
-                        contentDescription = if (isLoggedIn) "登出快捷" else "登入快捷",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clickable(onClick = onAccountClick)
-                    )
-                }
-            }
-        }
-
-        IconButton(onClick = onToggleMenu) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = "設定快捷選單",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
             }
         }
     }
