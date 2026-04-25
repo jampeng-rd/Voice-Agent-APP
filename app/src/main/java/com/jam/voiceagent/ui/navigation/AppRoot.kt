@@ -1,10 +1,18 @@
 package com.jam.voiceagent.ui.navigation
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.jam.voiceagent.ui.screens.AssistantHomeScreen
 import com.jam.voiceagent.ui.screens.auth.LoginScreen
 import com.jam.voiceagent.ui.screens.auth.RegisterScreen
@@ -27,6 +35,7 @@ fun AppRoot() {
             route = AppRoute.Login
         }
     }
+    HomeNavigationBarImmersiveEffect(enabled = route == AppRoute.Home)
 
     when (route) {
         AppRoute.Home -> {
@@ -86,4 +95,35 @@ fun AppRoot() {
             }
         }
     }
+}
+
+@Composable
+private fun HomeNavigationBarImmersiveEffect(enabled: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(enabled, view) {
+        val activity = view.context.findActivity()
+        val window = activity?.window
+        val controller =
+            if (window != null) WindowCompat.getInsetsController(window, view) else null
+
+        if (enabled) {
+            controller?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.navigationBars())
+        } else {
+            controller?.show(WindowInsetsCompat.Type.navigationBars())
+        }
+
+        onDispose {
+            if (enabled) {
+                controller?.show(WindowInsetsCompat.Type.navigationBars())
+            }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

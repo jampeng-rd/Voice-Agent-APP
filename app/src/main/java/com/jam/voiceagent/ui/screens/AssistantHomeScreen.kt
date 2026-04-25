@@ -229,7 +229,7 @@ fun AssistantHomeScreen(
     val displayText = when {
         isDizzy -> "暈頭中…"
         isSleeping -> "z.. Z.. z..."
-        state == AvatarState.Idle && touchAffectionHandler.affectionLevel > 0.75f -> "摸摸好舒服～"
+        state == AvatarState.Idle && touchAffectionHandler.affectionLevel > 0.75f -> "好舒服呀～"
         else -> state.statusText
     }
 
