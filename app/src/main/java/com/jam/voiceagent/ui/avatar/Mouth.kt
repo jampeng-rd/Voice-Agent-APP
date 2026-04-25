@@ -18,6 +18,8 @@ fun AvatarMouth(
     idleSurpriseFactor: Float,
     idleTiredFactor: Float,
     sleepiness: Float,
+    isDizzy: Boolean,
+    affectionLevel: Float,
     color: Color,
     modifier: Modifier = Modifier
 ) {
@@ -30,9 +32,22 @@ fun AvatarMouth(
             AvatarState.Idle -> {
                 val sleepy = (idleTiredFactor + sleepiness).coerceIn(0f, 1f)
                 val surprise = idleSurpriseFactor.coerceIn(0f, 1f)
-                val smile = idleSmileFactor.coerceIn(0f, 1f)
+                val affectionLow = ((affectionLevel - 0.12f) / 0.3f).coerceIn(0f, 1f)
+                val affectionMid = ((affectionLevel - 0.44f) / 0.28f).coerceIn(0f, 1f)
+                val affectionHigh = ((affectionLevel - 0.76f) / 0.22f).coerceIn(0f, 1f)
+                val smile = (idleSmileFactor + affectionLow * 0.42f).coerceIn(0f, 1f)
 
                 when {
+                    isDizzy -> {
+                        drawLine(
+                            color = color,
+                            start = Offset(center.x - base * 0.5f, center.y + base * 0.02f),
+                            end = Offset(center.x + base * 0.5f, center.y + base * 0.02f),
+                            strokeWidth = stroke,
+                            cap = StrokeCap.Round
+                        )
+                    }
+
                     sleepy > 0.74f -> {
                         drawLine(
                             color = color,
@@ -46,6 +61,34 @@ fun AvatarMouth(
                     surprise > 0.2f -> {
                         val radius = base * (0.25f + surprise * 0.12f)
                         drawCircle(color = color, radius = radius, center = center)
+                    }
+
+                    affectionHigh > 0.04f -> {
+                        val width = base * (1.22f + affectionHigh * 0.42f)
+                        val height = base * (0.6f + affectionHigh * 0.5f)
+                        drawOval(
+                            color = color,
+                            topLeft = Offset(center.x - width / 2f, center.y - height / 2f),
+                            size = Size(width, height)
+                        )
+                    }
+
+                    affectionMid > 0.05f -> {
+                        drawArc(
+                            color = color,
+                            startAngle = 12f,
+                            sweepAngle = 156f,
+                            useCenter = false,
+                            topLeft = Offset(
+                                center.x - base * (0.92f + affectionMid * 0.18f),
+                                center.y - base * (0.35f + affectionMid * 0.14f)
+                            ),
+                            size = Size(
+                                base * (1.84f + affectionMid * 0.34f),
+                                base * (0.78f + affectionMid * 0.22f)
+                            ),
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
                     }
 
                     smile > 0.06f -> {

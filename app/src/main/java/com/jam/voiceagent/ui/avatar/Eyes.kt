@@ -18,7 +18,9 @@ fun AvatarEyes(
     blinkFactor: Float,
     idleSurpriseFactor: Float,
     idleTiredFactor: Float,
+    affectionLevel: Float,
     sleepiness: Float,
+    isDizzy: Boolean,
     color: Color,
     modifier: Modifier = Modifier
 ) {
@@ -112,12 +114,38 @@ fun AvatarEyes(
             }
 
             else -> {
+                if (isDizzy) {
+                    val swirlStroke = stroke * 0.85f
+                    val swirlSize = Size(r * 2.3f, r * 2.3f)
+                    drawArc(
+                        color = color,
+                        startAngle = 20f,
+                        sweepAngle = 290f,
+                        useCenter = false,
+                        topLeft = Offset(leftX - swirlSize.width / 2f, eyeY - swirlSize.height / 2f),
+                        size = swirlSize,
+                        style = Stroke(width = swirlStroke, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = color,
+                        startAngle = 50f,
+                        sweepAngle = 290f,
+                        useCenter = false,
+                        topLeft = Offset(rightX - swirlSize.width / 2f, eyeY - swirlSize.height / 2f),
+                        size = swirlSize,
+                        style = Stroke(width = swirlStroke, cap = StrokeCap.Round)
+                    )
+                    return@Canvas
+                }
+
                 val surpriseBoost = idleSurpriseFactor * r * 0.26f
                 val tiredClamp = (idleTiredFactor * r * 0.24f) + (sleepiness * r * 0.52f)
                 val openHeight = (max(r * 0.35f, r * blinkFactor) + surpriseBoost - tiredClamp)
                     .coerceIn(r * 0.1f, r * 1.08f)
                 val eyeWidth = (r * (1f + idleSurpriseFactor * 0.08f - idleTiredFactor * 0.08f))
                     .coerceAtLeast(r * 0.82f)
+                val affectionLaugh = ((affectionLevel - 0.72f) / 0.26f).coerceIn(0f, 1f)
+                val affectionSquint = ((affectionLevel - 0.42f) / 0.4f).coerceIn(0f, 1f)
 
                 if (sleepiness > 0.8f && state == AvatarState.Idle) {
                     drawLine(
@@ -134,17 +162,41 @@ fun AvatarEyes(
                         strokeWidth = stroke,
                         cap = StrokeCap.Round
                     )
+                } else if (state == AvatarState.Idle && affectionLaugh > 0.02f) {
+                    val sweep = 130f + affectionLaugh * 18f
+                    val width = r * (2.5f + affectionLaugh * 0.5f)
+                    val height = r * (1.6f + affectionLaugh * 0.35f)
+                    val raise = r * (0.26f + affectionSquint * 0.18f)
+                    drawArc(
+                        color = color,
+                        startAngle = 205f,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(leftX - width / 2f, eyeY - raise - height * 0.5f),
+                        size = Size(width, height),
+                        style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = color,
+                        startAngle = 205f,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(rightX - width / 2f, eyeY - raise - height * 0.5f),
+                        size = Size(width, height),
+                        style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    )
                 } else {
+                    val affectionShrink = affectionSquint * 0.3f
                     drawRoundRect(
                         color = color,
                         topLeft = Offset(leftX - eyeWidth, eyeY - openHeight),
-                        size = Size(eyeWidth * 2f, openHeight * 2f),
+                        size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
                         cornerRadius = CornerRadius(r, r)
                     )
                     drawRoundRect(
                         color = color,
                         topLeft = Offset(rightX - eyeWidth, eyeY - openHeight),
-                        size = Size(eyeWidth * 2f, openHeight * 2f),
+                        size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
                         cornerRadius = CornerRadius(r, r)
                     )
                 }

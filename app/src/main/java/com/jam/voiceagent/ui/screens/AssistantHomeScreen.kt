@@ -5,6 +5,7 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,6 +14,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -56,14 +59,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.jam.voiceagent.ui.avatar.AvatarFace
 import com.jam.voiceagent.ui.avatar.AvatarState
+import com.jam.voiceagent.ui.avatar.interaction.ShakeInteractionState
+import com.jam.voiceagent.ui.avatar.interaction.ShakeSensorController
+import com.jam.voiceagent.ui.avatar.interaction.rememberTouchAffectionHandler
 import com.jam.voiceagent.ui.components.ChatInputBar
 import com.jam.voiceagent.ui.components.EmotionButtons
 import com.jam.voiceagent.ui.voice.ListeningIndicator
 import kotlinx.coroutines.delay
+import kotlin.math.hypot
 
 @Composable
 fun AssistantHomeScreen() {
@@ -75,13 +86,107 @@ fun AssistantHomeScreen() {
     var showDebugPanel by rememberSaveable { mutableStateOf(false) }
     var lastInteractionMs by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val touchAffectionHandler = rememberTouchAffectionHandler()
+
+    var shakeState by remember {
+        mutableStateOf(
+            ShakeInteractionState(
+                sensorAvailable = true,
+                tiltX = 0f,
+                tiltY = 0f,
+                shakeStrength = 0f,
+                isStrongShake = false
+            )
+        )
+    }
+
+    val sensorController = remember {
+        ShakeSensorController(context) { latest ->
+            shakeState = latest
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, sensorController) {
+        val observer = object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                sensorController.start()
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                sensorController.stop()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            sensorController.stop()
+        }
+    }
+
     val states = rememberAvatarStates()
     val resetIdleTimer = { lastInteractionMs = System.currentTimeMillis() }
 
+    var inStrongShakeSession by remember { mutableStateOf(false) }
+    var lastStrongShakeSeenMs by remember { mutableLongStateOf(0L) }
+    var shakeCooldownUntilMs by remember { mutableLongStateOf(0L) }
+    var shakeCooldownRemainingMs by remember { mutableLongStateOf(0L) }
+    var isDizzy by remember { mutableStateOf(false) }
+    val bounceOffsetX = remember { Animatable(0f) }
+    val bounceOffsetY = remember { Animatable(0f) }
+
+    val cooldownActive = shakeCooldownRemainingMs > 0L
+    val strongShakeActive = shakeState.isStrongShake && !cooldownActive && !isDizzy
+
+    LaunchedEffect(strongShakeActive) {
+        if (strongShakeActive) {
+            resetIdleTimer()
+            inStrongShakeSession = true
+            lastStrongShakeSeenMs = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(inStrongShakeSession, strongShakeActive, isDizzy) {
+        if (!inStrongShakeSession || strongShakeActive || isDizzy) return@LaunchedEffect
+        delay(420)
+        val now = System.currentTimeMillis()
+        if (inStrongShakeSession && !strongShakeActive && now - lastStrongShakeSeenMs >= 380L && !isDizzy) {
+            inStrongShakeSession = false
+            isDizzy = true
+            state = AvatarState.Idle
+            shakeCooldownUntilMs = now + 4_800L
+            delay(3000)
+            isDizzy = false
+            state = AvatarState.Idle
+        }
+    }
+
+    LaunchedEffect(inStrongShakeSession, strongShakeActive) {
+        if (inStrongShakeSession && strongShakeActive) {
+            while (inStrongShakeSession && strongShakeActive) {
+                bounceOffsetX.animateTo(12f, animationSpec = tween(90))
+                bounceOffsetY.animateTo(-15f, animationSpec = tween(90))
+                bounceOffsetX.animateTo(-10f, animationSpec = tween(90))
+                bounceOffsetY.animateTo(10f, animationSpec = tween(90))
+                bounceOffsetX.animateTo(6f, animationSpec = tween(90))
+                bounceOffsetY.animateTo(-7f, animationSpec = tween(90))
+                bounceOffsetX.animateTo(0f, animationSpec = tween(100))
+                bounceOffsetY.animateTo(0f, animationSpec = tween(100))
+            }
+        } else {
+            bounceOffsetX.animateTo(0f, animationSpec = tween(170))
+            bounceOffsetY.animateTo(0f, animationSpec = tween(170))
+        }
+    }
+
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1000)
-            nowMs = System.currentTimeMillis()
+            delay(250)
+            val now = System.currentTimeMillis()
+            nowMs = now
+            shakeCooldownRemainingMs = (shakeCooldownUntilMs - now).coerceAtLeast(0L)
         }
     }
 
@@ -96,6 +201,12 @@ fun AssistantHomeScreen() {
         animationSpec = tween(durationMillis = 1800),
         label = "idle-sleepiness"
     )
+
+    val displayText = when {
+        isDizzy -> "暈頭中…"
+        state == AvatarState.Idle && touchAffectionHandler.affectionLevel > 0.75f -> "摸摸好舒服～"
+        else -> state.statusText
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -138,7 +249,7 @@ fun AssistantHomeScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = state.statusText,
+                    text = displayText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
@@ -147,13 +258,52 @@ fun AssistantHomeScreen() {
                     fontWeight = FontWeight.Medium
                 )
 
-                AvatarFace(
-                    state = state,
-                    headColor = MaterialTheme.colorScheme.primaryContainer,
-                    featureColor = MaterialTheme.colorScheme.primary,
-                    glowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                    sleepiness = idleSleepiness
-                )
+                Box(
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = {
+                                    resetIdleTimer()
+                                    touchAffectionHandler.beginTouch()
+                                },
+                                onDragCancel = { touchAffectionHandler.endTouch() },
+                                onDragEnd = { touchAffectionHandler.endTouch() }
+                            ) { change, dragAmount ->
+                                change.consume()
+                                resetIdleTimer()
+                                val distance = hypot(dragAmount.x, dragAmount.y)
+                                touchAffectionHandler.addStroke(distance)
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    resetIdleTimer()
+                                    touchAffectionHandler.beginTouch()
+                                    touchAffectionHandler.nudge()
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        touchAffectionHandler.endTouch()
+                                    }
+                                }
+                            )
+                        }
+                ) {
+                    AvatarFace(
+                        state = state,
+                        headColor = MaterialTheme.colorScheme.primaryContainer,
+                        featureColor = MaterialTheme.colorScheme.primary,
+                        glowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                        affectionLevel = touchAffectionHandler.affectionLevel,
+                        tiltX = shakeState.tiltX,
+                        tiltY = shakeState.tiltY,
+                        bounceOffsetX = bounceOffsetX.value,
+                        bounceOffsetY = bounceOffsetY.value,
+                        isDizzy = isDizzy,
+                        sleepiness = idleSleepiness
+                    )
+                }
 
                 Box(
                     modifier = Modifier
@@ -246,6 +396,21 @@ fun AssistantHomeScreen() {
                                     showDebugPanel = !showDebugPanel
                                 }
                                 .alpha(0.72f)
+                        )
+                    }
+                    if (showDebugPanel) {
+                        Text(
+                            text =
+                                "A:${"%.2f".format(touchAffectionHandler.affectionLevel)} " +
+                                    "S:${"%.2f".format(shakeState.shakeStrength)} " +
+                                    "M:${"%.1f".format(shakeState.shakeMagnitude)} " +
+                                    "J:${"%.2f".format(shakeState.jerkStrength)} " +
+                                    "C:${shakeState.strongShakeCount} " +
+                                    "CD:${"%.1f".format(shakeCooldownRemainingMs / 1000f)}s " +
+                                    "D:${if (isDizzy) "Y" else "N"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.alpha(0.66f)
                         )
                     }
                     AnimatedVisibility(visible = showDebugPanel) {

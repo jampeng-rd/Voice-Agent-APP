@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,12 @@ fun AvatarFace(
     headColor: Color,
     featureColor: Color,
     glowColor: Color,
+    affectionLevel: Float = 0f,
+    tiltX: Float = 0f,
+    tiltY: Float = 0f,
+    bounceOffsetX: Float = 0f,
+    bounceOffsetY: Float = 0f,
+    isDizzy: Boolean = false,
     sleepiness: Float = 0f,
     size: Dp = 190.dp
 ) {
@@ -91,41 +98,32 @@ fun AvatarFace(
         idleSmileTarget = 0f
         idleSurpriseTarget = 0f
         idleTiredTarget = 0f
-        if (state != AvatarState.Idle) {
-            return@LaunchedEffect
-        }
+        if (state != AvatarState.Idle) return@LaunchedEffect
 
         while (true) {
-            kotlinx.coroutines.delay(Random.nextLong(4000L, 10001L))
+            kotlinx.coroutines.delay(Random.nextLong(2600L, 3601L))
             when (Random.nextInt(100)) {
-                in 0..46 -> {
+                in 0..40 -> {
                     idleSmileTarget = 0f
                     idleSurpriseTarget = 0f
                     idleTiredTarget = 0f
                 }
-
-                in 47..77 -> {
-                    idleSmileTarget = Random.nextFloat() * 0.28f + 0.18f
+                in 41..72 -> {
+                    idleSmileTarget = Random.nextFloat() * 0.2f + 0.2f
                     idleSurpriseTarget = 0f
-                    idleTiredTarget = Random.nextFloat() * 0.1f
+                    idleTiredTarget = Random.nextFloat() * 0.08f
                 }
-
-                in 78..91 -> {
+                in 73..87 -> {
                     idleSmileTarget = 0f
-                    idleSurpriseTarget = Random.nextFloat() * 0.22f + 0.1f
+                    idleSurpriseTarget = Random.nextFloat() * 0.16f + 0.08f
                     idleTiredTarget = 0f
                 }
-
                 else -> {
                     idleSmileTarget = 0f
                     idleSurpriseTarget = 0f
-                    idleTiredTarget = Random.nextFloat() * 0.32f + 0.16f
+                    idleTiredTarget = Random.nextFloat() * 0.2f + 0.11f
                 }
             }
-            kotlinx.coroutines.delay(Random.nextLong(1700L, 3200L))
-            idleSmileTarget = 0f
-            idleSurpriseTarget = 0f
-            idleTiredTarget = 0f
         }
     }
 
@@ -146,30 +144,54 @@ fun AvatarFace(
     )
 
     val sleepFactor = sleepiness.coerceIn(0f, 1f)
-    val effectiveHeadColor = lerp(headColor, Color(0xFF8FB5A6), sleepFactor * 0.55f)
-    val effectiveBlink = when (state) {
-        AvatarState.Idle -> {
+    val affectionWarmth by animateFloatAsState(
+        targetValue = affectionLevel.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 420),
+        label = "affection-warmth"
+    )
+    val warmPink = lerp(Color(0xFFF7B6B2), Color(0xFFF3A0A0), affectionWarmth * 0.62f)
+    val affectionHeadColor = lerp(headColor, warmPink, affectionWarmth * 0.6f)
+    val effectiveHeadColor = lerp(affectionHeadColor, Color(0xFF1F2B2A), sleepFactor * 0.92f)
+    val effectiveFeatureColor = lerp(featureColor, Color(0xFFE6F1EE), sleepFactor * 0.88f)
+    val effectiveBlink = when {
+        isDizzy -> 0.16f
+        state == AvatarState.Idle -> {
             (blink.value * (1f - idleTired * 0.25f - sleepFactor * 0.72f) + idleSurprise * 0.08f)
                 .coerceIn(0.06f, 1.06f)
         }
-
-        AvatarState.Helpless -> 0.2f
+        state == AvatarState.Helpless -> 0.2f
         else -> blink.value
     }
 
+    val animatedTiltX by animateFloatAsState(tiltX.coerceIn(-1f, 1f), tween(180), label = "tilt-x")
+    val animatedTiltY by animateFloatAsState(tiltY.coerceIn(-1f, 1f), tween(180), label = "tilt-y")
+    val animatedBounceX by animateFloatAsState(bounceOffsetX, tween(120), label = "bounce-x")
+    val animatedBounce by animateFloatAsState(bounceOffsetY, tween(180), label = "bounce-y")
+
     Box(
         modifier = modifier
-            .offset(y = floating.value.roundToInt().dp)
+            .offset(
+                x = animatedBounceX.roundToInt().dp,
+                y = (floating.value + animatedBounce).roundToInt().dp
+            )
+            .graphicsLayer {
+                translationX = animatedTiltX * 26f
+                translationY = animatedTiltY * 15f
+                rotationZ = animatedTiltX * 9f
+            }
             .size(size),
         contentAlignment = Alignment.Center
     ) {
-        if (state == AvatarState.Listening || state == AvatarState.Speaking) {
+        if (state == AvatarState.Listening || state == AvatarState.Speaking || affectionWarmth > 0.25f) {
             Box(
                 modifier = Modifier
                     .size(size * 1.12f)
-                    .scale(pulse.value)
-                    .alpha(0.42f)
-                    .background(glowColor, CircleShape)
+                    .scale(if (affectionWarmth > 0.25f) pulse.value else 1f)
+                    .alpha(0.42f + affectionWarmth * 0.08f)
+                    .background(
+                        lerp(glowColor, Color(0xFFF5B6C4), affectionWarmth * 0.7f),
+                        CircleShape
+                    )
             )
         }
 
@@ -184,8 +206,10 @@ fun AvatarFace(
                 blinkFactor = effectiveBlink,
                 idleSurpriseFactor = if (state == AvatarState.Idle) idleSurprise else 0f,
                 idleTiredFactor = if (state == AvatarState.Idle) idleTired else 0f,
+                affectionLevel = affectionWarmth,
                 sleepiness = sleepFactor,
-                color = featureColor,
+                isDizzy = isDizzy,
+                color = effectiveFeatureColor,
                 modifier = Modifier
                     .size(size)
                     .align(Alignment.Center)
@@ -197,7 +221,9 @@ fun AvatarFace(
                 idleSurpriseFactor = if (state == AvatarState.Idle) idleSurprise else 0f,
                 idleTiredFactor = if (state == AvatarState.Idle) idleTired else 0f,
                 sleepiness = sleepFactor,
-                color = featureColor,
+                isDizzy = isDizzy,
+                affectionLevel = affectionWarmth,
+                color = effectiveFeatureColor,
                 modifier = Modifier
                     .size(size)
                     .align(Alignment.Center)
