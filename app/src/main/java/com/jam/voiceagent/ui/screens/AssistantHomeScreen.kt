@@ -351,7 +351,7 @@ fun AssistantHomeScreen(
                 ChatInputBar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 106.dp),
+                        .padding(bottom = 102.dp),
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
                     textColor = MaterialTheme.colorScheme.onSurface,
                     placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
