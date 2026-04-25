@@ -336,7 +336,7 @@ fun AssistantHomeScreen() {
                 Box(
                     modifier = Modifier
                         .height(58.dp)
-                        .padding(top = 20.dp),
+                        .padding(top = 24.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
                     if (state == AvatarState.Speaking) {
