@@ -22,12 +22,12 @@ class TouchAffectionHandler {
     }
 
     fun addStroke(distancePx: Float) {
-        val delta = (distancePx / 2400f).coerceIn(0f, 0.025f)
+        val delta = (distancePx / 5200f).coerceIn(0f, 0.012f)
         affectionLevel = (affectionLevel + delta).coerceIn(0f, 1f)
     }
 
     fun nudge() {
-        affectionLevel = (affectionLevel + 0.03f).coerceIn(0f, 1f)
+        affectionLevel = (affectionLevel + 0.008f).coerceIn(0f, 1f)
     }
 
     fun endTouch() {

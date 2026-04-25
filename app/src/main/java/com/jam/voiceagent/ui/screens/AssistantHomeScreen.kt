@@ -198,7 +198,7 @@ fun AssistantHomeScreen() {
         state = AvatarState.Idle
         bounceOffsetX.snapTo(0f)
         bounceOffsetY.snapTo(0f)
-        delay(3000)
+        delay(5000)
         isDizzy = false
         inStrongShakeSession = false
         bounceStartedInSession = false
@@ -227,9 +227,11 @@ fun AssistantHomeScreen() {
         animationSpec = tween(durationMillis = 1800),
         label = "idle-sleepiness"
     )
+    val isSleeping = state == AvatarState.Idle && idleSleepiness > 0.18f && !isDizzy
 
     val displayText = when {
         isDizzy -> "暈頭中…"
+        isSleeping -> "z.. Z.. z..."
         state == AvatarState.Idle && touchAffectionHandler.affectionLevel > 0.75f -> "摸摸好舒服～"
         else -> state.statusText
     }

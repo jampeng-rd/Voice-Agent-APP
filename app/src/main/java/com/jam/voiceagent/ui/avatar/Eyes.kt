@@ -152,6 +152,7 @@ fun AvatarEyes(
                 val joyMid = smoothStep(0.26f, 0.7f, affectionLevel)
                 val joyHigh = smoothStep(0.62f, 0.98f, affectionLevel)
                 val affectionSquint = (joyMid * 0.58f + joyHigh * 0.42f).coerceIn(0f, 1f)
+                val smileEyeMode = smoothStep(0.56f, 0.9f, affectionLevel)
 
                 if (sleepiness > 0.8f && state == AvatarState.Idle) {
                     drawLine(
@@ -169,31 +170,35 @@ fun AvatarEyes(
                         cap = StrokeCap.Round
                     )
                 } else {
-                    val affectionShrink = affectionSquint * 0.4f
-                    val openEyeAlpha = (1f - joyHigh * 0.95f).coerceIn(0f, 1f)
-                    if (openEyeAlpha > 0.02f) {
+                    if (smileEyeMode < 0.55f) {
+                        val affectionShrink = affectionSquint * 0.4f
+                        val openEyeScale = (1f - smileEyeMode * 0.6f).coerceIn(0.55f, 1f)
                         drawRoundRect(
-                            color = color.copy(alpha = openEyeAlpha),
+                            color = color,
                             topLeft = Offset(leftX - eyeWidth, eyeY - openHeight),
-                            size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
+                            size = Size(
+                                eyeWidth * 2f,
+                                openHeight * 2f * (1f - affectionShrink) * openEyeScale
+                            ),
                             cornerRadius = CornerRadius(r, r)
                         )
                         drawRoundRect(
-                            color = color.copy(alpha = openEyeAlpha),
+                            color = color,
                             topLeft = Offset(rightX - eyeWidth, eyeY - openHeight),
-                            size = Size(eyeWidth * 2f, openHeight * 2f * (1f - affectionShrink)),
+                            size = Size(
+                                eyeWidth * 2f,
+                                openHeight * 2f * (1f - affectionShrink) * openEyeScale
+                            ),
                             cornerRadius = CornerRadius(r, r)
                         )
-                    }
-
-                    if (joyHigh > 0.01f) {
-                        val sweep = 128f + joyHigh * 24f
-                        val width = r * (2.38f + joyHigh * 0.55f)
-                        val height = r * (1.5f + joyHigh * 0.35f)
+                    } else {
+                        val arcProgress = smoothStep(0.55f, 1f, smileEyeMode)
+                        val sweep = 128f + arcProgress * 24f
+                        val width = r * (2.38f + arcProgress * 0.55f)
+                        val height = r * (1.5f + arcProgress * 0.35f)
                         val raise = r * (0.22f + affectionSquint * 0.26f)
-                        val laughColor = color.copy(alpha = joyHigh)
                         drawArc(
-                            color = laughColor,
+                            color = color,
                             startAngle = 205f,
                             sweepAngle = sweep,
                             useCenter = false,
@@ -202,7 +207,7 @@ fun AvatarEyes(
                             style = Stroke(width = stroke, cap = StrokeCap.Round)
                         )
                         drawArc(
-                            color = laughColor,
+                            color = color,
                             startAngle = 205f,
                             sweepAngle = sweep,
                             useCenter = false,

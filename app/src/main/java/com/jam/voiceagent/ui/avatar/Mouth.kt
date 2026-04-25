@@ -41,6 +41,7 @@ fun AvatarMouth(
                 val joyMid = smoothStep(0.34f, 0.76f, affectionLevel)
                 val joyHigh = smoothStep(0.68f, 1f, affectionLevel)
                 val smile = (idleSmileFactor * 0.45f + joyLow * 0.55f + joyMid * 0.35f).coerceIn(0f, 1f)
+                val openMouthMode = smoothStep(0.64f, 0.98f, affectionLevel)
 
                 when {
                     isDizzy -> {
@@ -69,27 +70,28 @@ fun AvatarMouth(
                     }
 
                     else -> {
-                        val openMouthAlpha = joyHigh * 0.92f
-                        drawArc(
-                            color = color.copy(alpha = (1f - openMouthAlpha * 0.82f).coerceIn(0f, 1f)),
-                            startAngle = 14f - joyMid * 4f,
-                            sweepAngle = 150f + joyMid * 10f,
-                            useCenter = false,
-                            topLeft = Offset(
-                                center.x - base * (0.76f + smile * 0.36f + joyMid * 0.26f),
-                                center.y - base * (0.2f + smile * 0.24f + joyMid * 0.14f)
-                            ),
-                            size = Size(
-                                base * (1.52f + smile * 0.76f + joyMid * 0.42f),
-                                base * (0.38f + smile * 0.46f + joyMid * 0.3f)
-                            ),
-                            style = Stroke(width = stroke, cap = StrokeCap.Round)
-                        )
-                        if (openMouthAlpha > 0.01f) {
-                            val width = base * (1.02f + joyMid * 0.3f + joyHigh * 0.72f)
-                            val height = base * (0.34f + joyMid * 0.12f + joyHigh * 0.7f)
+                        if (openMouthMode < 0.62f) {
+                            drawArc(
+                                color = color,
+                                startAngle = 14f - joyMid * 4f,
+                                sweepAngle = 150f + joyMid * 10f,
+                                useCenter = false,
+                                topLeft = Offset(
+                                    center.x - base * (0.76f + smile * 0.36f + joyMid * 0.26f),
+                                    center.y - base * (0.2f + smile * 0.24f + joyMid * 0.14f)
+                                ),
+                                size = Size(
+                                    base * (1.52f + smile * 0.76f + joyMid * 0.42f),
+                                    base * (0.38f + smile * 0.46f + joyMid * 0.3f)
+                                ),
+                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                            )
+                        } else {
+                            val openProgress = smoothStep(0.62f, 1f, openMouthMode)
+                            val width = base * (1.02f + joyMid * 0.3f + openProgress * 0.72f)
+                            val height = base * (0.34f + joyMid * 0.12f + openProgress * 0.7f)
                             drawOval(
-                                color = color.copy(alpha = openMouthAlpha),
+                                color = color,
                                 topLeft = Offset(center.x - width / 2f, center.y - height / 2f),
                                 size = Size(width, height)
                             )
