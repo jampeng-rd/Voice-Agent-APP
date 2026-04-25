@@ -335,8 +335,8 @@ fun AssistantHomeScreen() {
 
                 Box(
                     modifier = Modifier
-                        .height(44.dp)
-                        .padding(top = 16.dp),
+                        .height(58.dp)
+                        .padding(top = 20.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
                     if (state == AvatarState.Speaking) {
@@ -345,8 +345,8 @@ fun AssistantHomeScreen() {
                             color = MaterialTheme.colorScheme.primary,
                             softColor = MaterialTheme.colorScheme.primaryContainer,
                             modifier = Modifier
-                                .width(102.dp)
-                                .height(22.dp)
+                                .width(110.dp)
+                                .height(24.dp)
                         )
                     }
                 }

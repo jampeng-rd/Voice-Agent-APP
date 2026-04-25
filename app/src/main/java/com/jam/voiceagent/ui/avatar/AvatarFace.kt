@@ -80,6 +80,33 @@ fun AvatarFace(
         ),
         label = "pulse"
     )
+    val listeningPulseSoft = transition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "listening-pulse-soft"
+    )
+    val listeningPulseMid = transition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.16f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "listening-pulse-mid"
+    )
+    val listeningPulseOuter = transition.animateFloat(
+        initialValue = 0.88f,
+        targetValue = 1.24f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "listening-pulse-outer"
+    )
     val talk = transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -163,8 +190,8 @@ fun AvatarFace(
         else -> blink.value
     }
 
-    val animatedTiltX by animateFloatAsState(tiltX.coerceIn(-1f, 1f), tween(260), label = "tilt-x")
-    val animatedTiltY by animateFloatAsState(tiltY.coerceIn(-1f, 1f), tween(260), label = "tilt-y")
+    val animatedTiltX by animateFloatAsState(tiltX.coerceIn(-1f, 1f), tween(300), label = "tilt-x")
+    val animatedTiltY by animateFloatAsState(tiltY.coerceIn(-1f, 1f), tween(300), label = "tilt-y")
     val animatedBounceX by animateFloatAsState(bounceOffsetX, tween(120), label = "bounce-x")
     val animatedBounce by animateFloatAsState(bounceOffsetY, tween(180), label = "bounce-y")
 
@@ -175,14 +202,36 @@ fun AvatarFace(
                 y = (floating.value + animatedBounce).roundToInt().dp
             )
             .graphicsLayer {
-                translationX = animatedTiltX * 42f
-                translationY = animatedTiltY * 26f
-                rotationZ = animatedTiltX * 14f
+                translationX = animatedTiltX * 56f
+                translationY = animatedTiltY * 36f
+                rotationZ = animatedTiltX * 18f
             }
             .size(size),
         contentAlignment = Alignment.Center
     ) {
-        if (state == AvatarState.Listening || state == AvatarState.Speaking || affectionWarmth > 0.25f) {
+        if (state == AvatarState.Listening) {
+            Box(
+                modifier = Modifier
+                    .size(size * 1.18f)
+                    .scale(listeningPulseSoft.value)
+                    .alpha(0.4f)
+                    .background(glowColor.copy(alpha = 0.54f), CircleShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(size * 1.34f)
+                    .scale(listeningPulseMid.value)
+                    .alpha(0.3f)
+                    .background(glowColor.copy(alpha = 0.38f), CircleShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(size * 1.52f)
+                    .scale(listeningPulseOuter.value)
+                    .alpha(0.22f)
+                    .background(glowColor.copy(alpha = 0.26f), CircleShape)
+            )
+        } else if (state == AvatarState.Speaking || affectionWarmth > 0.25f) {
             Box(
                 modifier = Modifier
                     .size(size * 1.12f)

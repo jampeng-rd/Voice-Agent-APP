@@ -30,7 +30,7 @@ fun ListeningIndicator(
         initialValue = 0f,
         targetValue = (Math.PI * 2).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1500, easing = LinearEasing),
+            animation = tween(durationMillis = 980, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "wave-phase"
@@ -41,7 +41,7 @@ fun ListeningIndicator(
             .width(102.dp)
             .height(22.dp)
     ) {
-        val profile = listOf(0.16f, 0.24f, 0.35f, 0.5f, 0.65f, 0.82f, 1f, 0.82f, 0.65f, 0.5f, 0.35f, 0.24f, 0.16f)
+        val profile = listOf(0.18f, 0.27f, 0.4f, 0.56f, 0.72f, 0.88f, 1f, 0.88f, 0.72f, 0.56f, 0.4f, 0.27f, 0.18f)
         val count = profile.size
         val barWidth = size.width / 33f
         val gap = (size.width - barWidth * count) / (count - 1)
@@ -49,12 +49,12 @@ fun ListeningIndicator(
 
         repeat(count) { index ->
             val normalized = profile[index]
-            val rhythm = 0.9f + (sin(phase.value + index * 0.5f).toFloat() * 0.1f)
+            val rhythm = 0.84f + (sin(phase.value + index * 0.52f).toFloat() * 0.16f)
             val amplitude = if (isActive) normalized * rhythm else normalized * 0.2f
             val minHalfHeight = size.height * 0.1f
-            val halfHeight = (size.height * 0.46f * amplitude).coerceAtLeast(minHalfHeight)
+            val halfHeight = (size.height * 0.52f * amplitude).coerceAtLeast(minHalfHeight)
             val x = index * (barWidth + gap)
-            val fill = if (index in 4..8) color.copy(alpha = 0.68f) else softColor.copy(alpha = 0.56f)
+            val fill = if (index in 4..8) color.copy(alpha = 0.74f) else softColor.copy(alpha = 0.62f)
 
             drawRoundRect(
                 color = fill,
