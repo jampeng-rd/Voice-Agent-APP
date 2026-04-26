@@ -28,7 +28,8 @@ data class VoiceRoundResult(
     val aiReply: String? = null,
     val replyAudioFile: File? = null,
     val errorMessage: String? = null,
-    val switchedToGuest: Boolean = false
+    val switchedToGuest: Boolean = false,
+    val isSttEmptyResult: Boolean = false
 ) {
     val isSuccess: Boolean = errorMessage == null
 }
@@ -166,7 +167,11 @@ class VoiceRepository(
         }
 
         if (!body.success) {
-            return VoiceRoundResult(errorMessage = body.error_message ?: "語音回合處理失敗，請稍後再試。")
+            val isSttEmptyResult = body.user_text.isNullOrBlank() && body.ai_reply.isNullOrBlank()
+            return VoiceRoundResult(
+                errorMessage = body.error_message ?: "語音回合處理失敗，請稍後再試。",
+                isSttEmptyResult = isSttEmptyResult
+            )
         }
         Log.i(
             TAG,

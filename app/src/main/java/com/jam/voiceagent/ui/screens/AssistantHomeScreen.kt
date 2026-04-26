@@ -17,7 +17,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -398,7 +397,17 @@ fun AssistantHomeScreen(
                 }
 
                 if (!voiceResult.isSuccess) {
-                    showVoiceError(voiceResult.errorMessage ?: "目前連線有點問題，請稍後再試。")
+                    val errorText = voiceResult.errorMessage ?: "目前連線有點問題，請稍後再試。"
+                    if (voiceResult.isSttEmptyResult) {
+                        onAssistantReplyChange(errorText)
+                        state = AvatarState.Surprised
+                        delay(900)
+                        if (state == AvatarState.Surprised) {
+                            state = AvatarState.Idle
+                        }
+                    } else {
+                        showVoiceError(errorText)
+                    }
                     return@launch
                 }
 
@@ -736,173 +745,138 @@ private fun BottomInputControls(
             .padding(horizontal = 12.dp)
             .padding(bottom = if (isTextInputMode) 12.dp else 14.dp)
     ) {
-        if (isTextInputMode) {
-            if (showNewConversationAction) {
-                IconButton(
-                    onClick = onStartNewConversation,
-                    enabled = !isChatBusy,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .offset(x = (-92).dp)
-                        .padding(bottom = 8.dp)
-                        .size(44.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "開始新對話",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-                }
-            }
-
-            IconButton(
-                onClick = onTextSend,
-                enabled = isTextSendEnabled && !isChatBusy,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp)
-                    .size(66.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.BottomStart
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(66.dp)
-                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.NorthEast,
-                        contentDescription = "文字模式主操作",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-
-            IconButton(
-                onClick = onSwitchToVoiceMode,
-                enabled = !isChatBusy,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 2.dp, bottom = 8.dp)
-                    .size(44.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Mic,
-                        contentDescription = "切回語音模式",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-            }
-        } else {
-            if (showNewConversationAction) {
-                IconButton(
-                    onClick = onStartNewConversation,
-                    enabled = !isChatBusy,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .offset(x = (-92).dp)
-                        .padding(bottom = 8.dp)
-                        .size(44.dp)
-                ) {
-                    Box(
+                if (showNewConversationAction) {
+                    IconButton(
+                        onClick = onStartNewConversation,
+                        enabled = !isChatBusy,
                         modifier = Modifier
-                            .size(42.dp)
-                            .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
-                        contentAlignment = Alignment.Center
+                            .padding(start = 2.dp, bottom = 8.dp)
+                            .size(44.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "開始新對話",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(19.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = "開始新對話",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
                     }
                 }
             }
 
             Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.BottomCenter
             ) {
-                val canStartOrStopMic = !isChatBusy || isRecordingVoice
-                val currentCanStartOrStopMic by rememberUpdatedState(canStartOrStopMic)
-                val currentOnMicPressState by rememberUpdatedState(onMicPressState)
-                if (isMicPressed) {
-                    Box(
+                if (isTextInputMode) {
+                    IconButton(
+                        onClick = onTextSend,
+                        enabled = isTextSendEnabled && !isChatBusy,
                         modifier = Modifier
-                            .size(76.dp)
-                            .scale(pulse)
-                            .alpha(0.46f)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.26f), CircleShape)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                        .alpha(if (canStartOrStopMic) 1f else 0.55f)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = {
-                                    if (currentCanStartOrStopMic) {
-                                        currentOnMicPressState(true)
-                                        try {
-                                            tryAwaitRelease()
-                                        } finally {
-                                            currentOnMicPressState(false)
-                                        }
-                                    }
-                                }
+                            .padding(bottom = 8.dp)
+                            .size(66.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(66.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.NorthEast,
+                                contentDescription = "文字模式主操作",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
                             )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Mic,
-                        contentDescription = "語音模式主麥克風",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(30.dp)
-                    )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val canStartOrStopMic = !isChatBusy || isRecordingVoice
+                        val currentCanStartOrStopMic by rememberUpdatedState(canStartOrStopMic)
+                        val currentOnMicPressState by rememberUpdatedState(onMicPressState)
+                        if (isMicPressed) {
+                            Box(
+                                modifier = Modifier
+                                    .size(76.dp)
+                                    .scale(pulse)
+                                    .alpha(0.46f)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.26f), CircleShape)
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                .alpha(if (canStartOrStopMic) 1f else 0.55f)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            if (currentCanStartOrStopMic) {
+                                                currentOnMicPressState(true)
+                                                try {
+                                                    tryAwaitRelease()
+                                                } finally {
+                                                    currentOnMicPressState(false)
+                                                }
+                                            }
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Mic,
+                                contentDescription = "語音模式主麥克風",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+                    }
                 }
             }
 
-            IconButton(
-                onClick = onSwitchToTextMode,
-                enabled = !isChatBusy,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 2.dp, bottom = 8.dp)
-                    .size(44.dp)
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.BottomEnd
             ) {
-                Box(
+                IconButton(
+                    onClick = if (isTextInputMode) onSwitchToVoiceMode else onSwitchToTextMode,
+                    enabled = !isChatBusy,
                     modifier = Modifier
-                        .size(42.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
-                    contentAlignment = Alignment.Center
+                        .padding(end = 2.dp, bottom = 8.dp)
+                        .size(44.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Keyboard,
-                        contentDescription = "切換文字模式",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isTextInputMode) Icons.Filled.Mic else Icons.Filled.Keyboard,
+                            contentDescription = if (isTextInputMode) "切回語音模式" else "切換文字模式",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(if (isTextInputMode) 19.dp else 18.dp)
+                        )
+                    }
                 }
             }
         }
