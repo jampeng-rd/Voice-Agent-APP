@@ -22,11 +22,13 @@ import com.jam.voiceagent.data.local.TokenStore
 import com.jam.voiceagent.data.network.ApiClient
 import com.jam.voiceagent.data.repository.AuthRepository
 import com.jam.voiceagent.data.repository.ChatRepository
+import com.jam.voiceagent.data.repository.ConversationRepository
 import com.jam.voiceagent.data.repository.VoiceRepository
 import com.jam.voiceagent.ui.screens.AssistantHomeScreen
 import com.jam.voiceagent.ui.screens.auth.LoginScreen
 import com.jam.voiceagent.ui.screens.auth.RegisterScreen
-import com.jam.voiceagent.ui.screens.chat.ChatPlaceholderScreen
+import com.jam.voiceagent.ui.screens.chat.ChatListScreen
+import com.jam.voiceagent.ui.screens.chat.ConversationDetailScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -58,8 +60,16 @@ fun AppRoot() {
             authRepository = authRepository
         )
     }
+    val conversationRepository = remember(context) {
+        ConversationRepository(
+            conversationApi = ApiClient.conversationApi,
+            tokenStore = tokenStore,
+            authRepository = authRepository
+        )
+    }
 
     var route by rememberSaveable { mutableStateOf(AppRoute.Home) }
+    var selectedConversationSessionId by rememberSaveable { mutableStateOf<String?>(null) }
     var isLoggedIn by remember { mutableStateOf(false) }
     var isChatBusy by remember { mutableStateOf(false) }
     var latestAssistantReply by remember { mutableStateOf("") }
@@ -178,12 +188,82 @@ fun AppRoot() {
                     }
                 )
             } else {
-                ChatPlaceholderScreen(
+                ChatListScreen(
+                    isLoggedIn = isLoggedIn,
+                    conversationRepository = conversationRepository,
+                    onHomeClick = goHome,
+                    onChatClick = goChat,
+                    onUserClick = userAction,
+                    onOpenDetail = { sessionId ->
+                        selectedConversationSessionId = sessionId
+                        route = AppRoute.ConversationDetail
+                    },
+                    onRequireLogin = {
+                        route = AppRoute.Login
+                    },
+                    onAuthSwitchedToGuest = {
+                        isLoggedIn = false
+                        route = AppRoute.Login
+                    }
+                )
+            }
+        }
+
+        AppRoute.ConversationDetail -> {
+            if (!isLoggedIn) {
+                LoginScreen(
                     isLoggedIn = isLoggedIn,
                     onHomeClick = goHome,
                     onChatClick = goChat,
-                    onUserClick = userAction
+                    onUserClick = userAction,
+                    authRepository = authRepository,
+                    onGoRegister = { route = AppRoute.Register },
+                    onLoginSuccess = {
+                        isLoggedIn = true
+                        guestStartupErrorMessage = ""
+                        route = AppRoute.Home
+                    }
                 )
+            } else {
+                val sessionId = selectedConversationSessionId
+                if (sessionId.isNullOrBlank()) {
+                    ChatListScreen(
+                        isLoggedIn = isLoggedIn,
+                        conversationRepository = conversationRepository,
+                        onHomeClick = goHome,
+                        onChatClick = goChat,
+                        onUserClick = userAction,
+                        onOpenDetail = { selectedSessionId ->
+                            selectedConversationSessionId = selectedSessionId
+                            route = AppRoute.ConversationDetail
+                        },
+                        onRequireLogin = { route = AppRoute.Login },
+                        onAuthSwitchedToGuest = {
+                            isLoggedIn = false
+                            route = AppRoute.Login
+                        }
+                    )
+                } else {
+                    ConversationDetailScreen(
+                        isLoggedIn = isLoggedIn,
+                        sessionId = sessionId,
+                        conversationRepository = conversationRepository,
+                        onHomeClick = goHome,
+                        onChatClick = goChat,
+                        onUserClick = userAction,
+                        onConfirmUseSession = { confirmedSessionId ->
+                            sessionStore.saveRegisteredSessionId(confirmedSessionId)
+                            route = AppRoute.Home
+                        },
+                        onRequireLogin = {
+                            route = AppRoute.Login
+                        },
+                        onAuthSwitchedToGuest = {
+                            isLoggedIn = false
+                            route = AppRoute.Login
+                        }
+                    )
+                }
             }
         }
     }

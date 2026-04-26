@@ -129,8 +129,8 @@
 - 已串接 `POST /api/auth/register`、`POST /api/auth/login`、`POST /api/chat`（文字模式）
 - 已串接 guest token（`POST /api/auth/guest`）並採 memory-only（不落地保存）
 - 尚未實作真正語音錄音與播放
-- Chat 歷史頁目前仍為假資料頁，未串接 conversations API
-- Chat 左滑刪除目前僅本地 UI 原型，未串接刪除 API
+- Chat 歷史頁已串接 registered conversations API（list/detail/delete）
+- Conversation detail 為只讀頁，確認後可切換 Home current session_id 繼續文字與語音對話
 - 表情切換目前由開發用 chips 手動控制，未與語音流程綁定
 - 強搖門檻目前以真機體感做保守值，仍需依不同裝置型號微調
 - portrait 為現階段測試穩定性設定，後續若支援橫式需重新設計感測與版面策略
@@ -426,3 +426,21 @@
   - 不輸出 access token / refresh token / guest token
   - 不輸出完整 STT 文字
   - 可輸出 error type、HTTP status code、identity type、是否 retry
+
+## 29. Phase Android-CONV-01 Registered Conversation History 摘要
+
+- 新增 Conversation API 串接：
+  - `GET /api/conversations`
+  - `GET /api/conversations/{session_id}`
+  - `DELETE /api/conversations/{session_id}`
+- endpoint / 欄位以 server 實作為準：
+  - list item 使用 `session_id`、`title`、`created_at`、`updated_at`
+  - detail message 使用 `content`（非 `text`）
+  - delete response 支援 `session_id`、`deleted`
+- Chat list 改為真實資料狀態：`loading / empty / error / content`。
+- guest 不會載入 registered history；會導向登入或顯示「登入後可以查看歷史對話」。
+- Conversation detail 為只讀，不提供輸入框或麥克風送出。
+- detail 按「確定使用這段對話」後，會回 Home 並切換 registered current `session_id`。
+- 後續 `/api/chat` 與 `/api/voice/round` 都沿用選定的 `session_id`。
+- conversation list/detail/delete 遇 `401` 時，沿用 API-03 refresh recovery + retry once。
+- conversation API 遇 `403` 時，以登入提示處理（不顯示歷史資料）。

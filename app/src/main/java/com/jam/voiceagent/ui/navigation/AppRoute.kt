@@ -4,5 +4,6 @@ enum class AppRoute {
     Home,
     Login,
     Register,
-    Chat
+    Chat,
+    ConversationDetail
 }
