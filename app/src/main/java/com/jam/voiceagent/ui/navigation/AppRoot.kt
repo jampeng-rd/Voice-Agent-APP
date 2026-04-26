@@ -142,7 +142,7 @@ fun AppRoot() {
                 onLoginSuccess = {
                     isLoggedIn = true
                     guestStartupErrorMessage = ""
-                    route = AppRoute.Chat
+                    route = AppRoute.Home
                 }
             )
         }
@@ -171,7 +171,7 @@ fun AppRoot() {
                     onLoginSuccess = {
                         isLoggedIn = true
                         guestStartupErrorMessage = ""
-                        route = AppRoute.Chat
+                        route = AppRoute.Home
                     }
                 )
             } else {

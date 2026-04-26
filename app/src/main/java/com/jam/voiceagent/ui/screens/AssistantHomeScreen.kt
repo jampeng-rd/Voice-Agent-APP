@@ -48,6 +48,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -105,6 +106,7 @@ fun AssistantHomeScreen(
     var inputText by rememberSaveable { mutableStateOf("") }
     var lastInteractionMs by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var voiceUiPhase by rememberSaveable { mutableStateOf(VoiceUiPhase.Idle) }
 
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -130,16 +132,19 @@ fun AssistantHomeScreen(
     fun startVoiceRecordingFlow() {
         if (isChatBusy || isTextInputMode) return
         lastInteractionMs = System.currentTimeMillis()
+        onChatBusyChange(true)
         val startResult = voiceRecorder.startRecording()
         if (startResult.isFailure) {
+            onChatBusyChange(false)
             isMicPressed = false
+            voiceUiPhase = VoiceUiPhase.Idle
             showVoiceError("錄音時發生問題，請再試一次。")
             return
         }
         activeRecordedFile = startResult.getOrNull()
         isMicPressed = true
+        voiceUiPhase = VoiceUiPhase.Recording
         state = AvatarState.Listening
-        onChatBusyChange(true)
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -344,15 +349,17 @@ fun AssistantHomeScreen(
     }
 
     fun stopAndSendVoiceMessage() {
-        if (!isMicPressed) return
+        if (!isMicPressed || voiceUiPhase != VoiceUiPhase.Recording) return
 
         isMicPressed = false
+        voiceUiPhase = VoiceUiPhase.SendingVoice
         state = AvatarState.Thinking
 
         val stopResult = voiceRecorder.stopRecording()
         val recordedFile = stopResult.getOrNull()
         if (stopResult.isFailure || recordedFile == null) {
             onChatBusyChange(false)
+            voiceUiPhase = VoiceUiPhase.Idle
             activeRecordedFile = null
             showVoiceError("錄音時發生問題，請再試一次。")
             return
@@ -385,6 +392,7 @@ fun AssistantHomeScreen(
                 }
 
                 state = AvatarState.Speaking
+                voiceUiPhase = VoiceUiPhase.PlayingResponse
                 val playback = runCatching { voicePlayer.playAndAwait(replyFile) }
                 if (playback.isFailure) {
                     showVoiceError("播放回覆時發生問題，請稍後再試。")
@@ -397,6 +405,7 @@ fun AssistantHomeScreen(
                 activeRecordedFile = null
                 activeReplyAudioFile = null
                 onChatBusyChange(false)
+                voiceUiPhase = VoiceUiPhase.Idle
                 if (state == AvatarState.Thinking) {
                     state = AvatarState.Idle
                 }
@@ -540,10 +549,11 @@ fun AssistantHomeScreen(
             BottomInputControls(
                 isTextInputMode = isTextInputMode,
                 isMicPressed = isMicPressed,
+                isRecordingVoice = voiceUiPhase == VoiceUiPhase.Recording,
                 onMicPressState = { pressed ->
                     if (!isTextInputMode) {
                         if (pressed) {
-                            if (!isChatBusy) {
+                            if (voiceUiPhase == VoiceUiPhase.Idle && !isChatBusy) {
                                 val hasPermission = ContextCompat.checkSelfPermission(
                                     context,
                                     Manifest.permission.RECORD_AUDIO
@@ -554,7 +564,7 @@ fun AssistantHomeScreen(
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
                             }
-                        } else if (isMicPressed) {
+                        } else if (voiceUiPhase == VoiceUiPhase.Recording && isMicPressed) {
                             stopAndSendVoiceMessage()
                         } else {
                             isMicPressed = false
@@ -667,6 +677,7 @@ fun AssistantHomeScreen(
 private fun BottomInputControls(
     isTextInputMode: Boolean,
     isMicPressed: Boolean,
+    isRecordingVoice: Boolean,
     onMicPressState: (Boolean) -> Unit,
     onSwitchToTextMode: () -> Unit,
     onSwitchToVoiceMode: () -> Unit,
@@ -745,6 +756,9 @@ private fun BottomInputControls(
                     .padding(bottom = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
+                val canStartOrStopMic = !isChatBusy || isRecordingVoice
+                val currentCanStartOrStopMic by rememberUpdatedState(canStartOrStopMic)
+                val currentOnMicPressState by rememberUpdatedState(onMicPressState)
                 if (isMicPressed) {
                     Box(
                         modifier = Modifier
@@ -758,15 +772,16 @@ private fun BottomInputControls(
                     modifier = Modifier
                         .size(64.dp)
                         .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                        .alpha(if (canStartOrStopMic) 1f else 0.55f)
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
-                                    if (!isChatBusy) {
-                                        onMicPressState(true)
+                                    if (currentCanStartOrStopMic) {
+                                        currentOnMicPressState(true)
                                         try {
                                             tryAwaitRelease()
                                         } finally {
-                                            onMicPressState(false)
+                                            currentOnMicPressState(false)
                                         }
                                     }
                                 }
@@ -821,3 +836,10 @@ private fun rememberAvatarStates(): List<AvatarState> = listOf(
     AvatarState.Surprised,
     AvatarState.Helpless
 )
+
+private enum class VoiceUiPhase {
+    Idle,
+    Recording,
+    SendingVoice,
+    PlayingResponse
+}
