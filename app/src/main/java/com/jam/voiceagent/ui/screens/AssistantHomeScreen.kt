@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -746,11 +747,15 @@ private fun BottomInputControls(
             .padding(bottom = if (isTextInputMode) 12.dp else 14.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(84.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 contentAlignment = Alignment.BottomStart
             ) {
                 if (showNewConversationAction) {
@@ -779,7 +784,9 @@ private fun BottomInputControls(
             }
 
             Box(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 if (isTextInputMode) {
@@ -854,7 +861,9 @@ private fun BottomInputControls(
             }
 
             Box(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 contentAlignment = Alignment.BottomEnd
             ) {
                 IconButton(
