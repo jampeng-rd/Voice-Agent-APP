@@ -45,7 +45,8 @@ fun AppRoot() {
         ChatRepository(
             chatApi = ApiClient.chatApi,
             tokenStore = tokenStore,
-            sessionStore = sessionStore
+            sessionStore = sessionStore,
+            authRepository = authRepository
         )
     }
     val voiceRepository = remember(context) {
@@ -53,7 +54,8 @@ fun AppRoot() {
             voiceApi = ApiClient.voiceApi,
             tokenStore = tokenStore,
             sessionStore = sessionStore,
-            cacheDir = context.cacheDir
+            cacheDir = context.cacheDir,
+            authRepository = authRepository
         )
     }
 

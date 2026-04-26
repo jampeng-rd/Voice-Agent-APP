@@ -395,3 +395,34 @@
   - timeout：`語音回覆下載逾時，請稍後再試。`
   - 其他下載失敗：`語音回覆下載失敗，請稍後再試。`
 - voice busy 鎖定延續至錄音、上傳、下載、播放整段流程。
+
+## 28. Phase Android-API-03 Token Expiry Recovery 摘要
+
+- Auth API / model 新增 refresh flow：
+  - `POST /api/auth/refresh`
+  - request：`{ "refresh_token": "..." }`
+  - response：`token`、`refresh_token`、`expires_at`、`refresh_expires_at`、`user_id`、`email`
+- Login / refresh 成功後，registered 身分保存欄位改為：
+  - access token
+  - access token expires_at
+  - refresh token
+  - refresh token expires_at
+- guest token / guest_id / guest expires_at / guest session_id 仍維持 memory-only，不落地 SharedPreferences。
+- `ChatRepository.sendText()` 與 `VoiceRepository.sendVoiceRound()` 遇到 401 時套用同一套 recovery：
+  - guest：重新呼叫 `POST /api/auth/guest` 建立 guest token，保留既有 guest session_id，成功後 retry 原 request 一次
+  - registered：呼叫 `POST /api/auth/refresh`，成功後保存新 token 並 retry 原 request 一次
+- refresh 失敗（含 refresh token 無效/過期）：
+  - 清除 registered access/refresh token 與 registered session_id
+  - 建立新的 guest token
+  - 回傳 UI 提示：`登入已過期，已切換為訪客模式。`
+  - App 不閃退
+- retry 規則：
+  - 每次原始 chat/voice request 最多 recovery + retry 一次
+  - retry 後仍失敗時，直接回傳原本錯誤，不再重試
+- voice retry 規則：
+  - token recovery retry 前不刪除錄音暫存檔
+  - 最終成功或失敗後才由 Home 流程統一清理錄音與回覆暫存檔
+- Logcat 原則：
+  - 不輸出 access token / refresh token / guest token
+  - 不輸出完整 STT 文字
+  - 可輸出 error type、HTTP status code、identity type、是否 retry

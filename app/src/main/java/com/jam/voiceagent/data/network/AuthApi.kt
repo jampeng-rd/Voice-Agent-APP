@@ -3,6 +3,8 @@ package com.jam.voiceagent.data.network
 import com.jam.voiceagent.data.model.AuthRequest
 import com.jam.voiceagent.data.model.GuestAuthResponse
 import com.jam.voiceagent.data.model.LoginResponse
+import com.jam.voiceagent.data.model.RefreshTokenRequest
+import com.jam.voiceagent.data.model.RefreshTokenResponse
 import com.jam.voiceagent.data.model.RegisterResponse
 import retrofit2.Response
 import retrofit2.http.Body
@@ -21,4 +23,9 @@ interface AuthApi {
     suspend fun login(
         @Body request: AuthRequest
     ): Response<LoginResponse>
+
+    @POST("api/auth/refresh")
+    suspend fun refresh(
+        @Body request: RefreshTokenRequest
+    ): Response<RefreshTokenResponse>
 }

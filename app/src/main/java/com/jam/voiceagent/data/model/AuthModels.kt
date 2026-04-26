@@ -15,9 +15,26 @@ data class RegisterResponse(
 data class LoginResponse(
     val success: Boolean,
     val token: String?,
+    val refresh_token: String?,
     val user_id: Long?,
     val email: String?,
     val expires_at: String?,
+    val refresh_expires_at: String?,
+    val error_message: String?
+)
+
+data class RefreshTokenRequest(
+    val refresh_token: String
+)
+
+data class RefreshTokenResponse(
+    val success: Boolean,
+    val token: String?,
+    val refresh_token: String?,
+    val expires_at: String?,
+    val refresh_expires_at: String?,
+    val user_id: Long?,
+    val email: String?,
     val error_message: String?
 )
 

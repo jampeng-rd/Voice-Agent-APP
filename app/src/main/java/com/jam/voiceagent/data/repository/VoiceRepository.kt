@@ -35,7 +35,8 @@ class VoiceRepository(
     private val voiceApi: VoiceApi,
     private val tokenStore: TokenStore,
     private val sessionStore: SessionStore,
-    private val cacheDir: File
+    private val cacheDir: File,
+    private val authRepository: AuthRepository
 ) {
     private val gson = Gson()
     private data class ResolvedAudio(
@@ -44,8 +45,16 @@ class VoiceRepository(
     )
 
     suspend fun sendVoiceRound(recordedWavFile: File): VoiceRoundResult {
+        return sendVoiceRoundInternal(recordedWavFile = recordedWavFile, hasRetriedAfterRecovery = false)
+    }
+
+    private suspend fun sendVoiceRoundInternal(
+        recordedWavFile: File,
+        hasRetriedAfterRecovery: Boolean
+    ): VoiceRoundResult {
         val usingRegistered = tokenStore.isUsingRegisteredToken()
         val token = if (usingRegistered) tokenStore.getRegisteredToken() else tokenStore.getGuestToken()
+        val identity = if (usingRegistered) "registered" else "guest"
         if (token.isNullOrBlank()) {
             return VoiceRoundResult(errorMessage = "目前無法建立訪客連線，請稍後再試。")
         }
@@ -70,11 +79,20 @@ class VoiceRepository(
             )
         }.fold(
             onSuccess = { response ->
-                handleVoiceResponse(response, sessionId)
+                handleVoiceResponse(
+                    response = response,
+                    recordedWavFile = recordedWavFile,
+                    usingRegistered = usingRegistered,
+                    hasRetriedAfterRecovery = hasRetriedAfterRecovery
+                )
             },
             onFailure = { throwable ->
                 val uiMessage = classifyThrowable(throwable)
-                Log.w(TAG, "voice round failed: sessionId=$sessionId type=$uiMessage")
+                val type = throwable::class.java.simpleName
+                Log.w(
+                    TAG,
+                    "voice round failed: identity=$identity retry=$hasRetriedAfterRecovery type=$type"
+                )
                 VoiceRoundResult(errorMessage = uiMessage)
             }
         )
@@ -89,24 +107,52 @@ class VoiceRepository(
 
     private suspend fun handleVoiceResponse(
         response: Response<VoiceRoundResponse>,
-        sessionId: String
+        recordedWavFile: File,
+        usingRegistered: Boolean,
+        hasRetriedAfterRecovery: Boolean
     ): VoiceRoundResult {
+        val identity = if (usingRegistered) "registered" else "guest"
         if (!response.isSuccessful) {
             val parsed = parseErrorMessage(response)
             val code = response.code()
+            Log.w(TAG, "voice round response failed: code=$code identity=$identity retry=$hasRetriedAfterRecovery")
+
+            if (code == 401 && !hasRetriedAfterRecovery) {
+                Log.i(TAG, "voice token recovery start: identity=$identity")
+                val recoveryResult = if (usingRegistered) {
+                    authRepository.refreshRegisteredToken()
+                } else {
+                    authRepository.recreateGuestTokenIfNeeded()
+                }
+                if (recoveryResult.isSuccess) {
+                    Log.i(TAG, "voice token recovery success: identity=$identity retry=true")
+                    return sendVoiceRoundInternal(
+                        recordedWavFile = recordedWavFile,
+                        hasRetriedAfterRecovery = true
+                    )
+                }
+                Log.w(
+                    TAG,
+                    "voice token recovery failed: identity=$identity switchedToGuest=${recoveryResult.switchedToGuest}"
+                )
+                return VoiceRoundResult(
+                    errorMessage = recoveryResult.errorMessage
+                        ?: if (usingRegistered) "登入已過期，已切換為訪客模式。" else "目前無法建立訪客連線，請稍後再試。"
+                )
+            }
+
             val message = when {
-                code == 401 && tokenStore.isUsingRegisteredToken() -> parsed ?: "登入狀態已失效，請重新登入。"
+                code == 401 && usingRegistered -> parsed ?: "登入狀態已失效，請重新登入。"
                 code in 400..499 -> parsed ?: "語音請求格式或內容有誤，請稍後再試。"
                 code >= 500 -> parsed ?: "伺服器忙碌中，請稍後再試。"
                 else -> parsed ?: "目前連線有點問題，請稍後再試。"
             }
-            Log.w(TAG, "voice round response failed: code=$code sessionId=$sessionId")
             return VoiceRoundResult(errorMessage = message)
         }
 
         val body = response.body()
         if (body == null) {
-            Log.w(TAG, "voice round empty body: sessionId=$sessionId")
+            Log.w(TAG, "voice round empty body: identity=$identity retry=$hasRetriedAfterRecovery")
             return VoiceRoundResult(errorMessage = "回覆解析失敗，請稍後再試。")
         }
 

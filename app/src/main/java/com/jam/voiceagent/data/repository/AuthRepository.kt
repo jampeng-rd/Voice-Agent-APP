@@ -1,14 +1,23 @@
 package com.jam.voiceagent.data.repository
 
+import android.util.Log
 import com.google.gson.Gson
 import com.jam.voiceagent.data.local.SessionStore
 import com.jam.voiceagent.data.local.TokenStore
 import com.jam.voiceagent.data.model.AuthRequest
 import com.jam.voiceagent.data.model.GuestAuthResponse
 import com.jam.voiceagent.data.model.LoginResponse
+import com.jam.voiceagent.data.model.RefreshTokenRequest
+import com.jam.voiceagent.data.model.RefreshTokenResponse
 import com.jam.voiceagent.data.model.RegisterResponse
 import com.jam.voiceagent.data.network.AuthApi
 import retrofit2.Response
+
+data class TokenRecoveryResult(
+    val isSuccess: Boolean,
+    val switchedToGuest: Boolean = false,
+    val errorMessage: String? = null
+)
 
 class AuthRepository(
     private val authApi: AuthApi,
@@ -48,7 +57,12 @@ class AuthRepository(
                     val body = response.body()
                     val token = body?.token
                     if (body?.success == true && !token.isNullOrBlank()) {
-                        tokenStore.saveRegisteredToken(token)
+                        tokenStore.saveRegisteredAuth(
+                            accessToken = token,
+                            expiresAt = body.expires_at,
+                            refreshToken = body.refresh_token,
+                            refreshExpiresAt = body.refresh_expires_at
+                        )
                         sessionStore.promoteGuestSessionToRegistered()
                         tokenStore.clearGuestAuth()
                         RepositoryResult(data = Unit)
@@ -100,6 +114,66 @@ class AuthRepository(
         )
     }
 
+    suspend fun recreateGuestTokenIfNeeded(): TokenRecoveryResult {
+        tokenStore.clearGuestAuth()
+        val guestResult = createGuestToken()
+        if (guestResult.isSuccess) {
+            Log.i(TAG, "token recovery: recreated guest token")
+            return TokenRecoveryResult(isSuccess = true)
+        }
+        Log.w(TAG, "token recovery: recreate guest failed")
+        return TokenRecoveryResult(
+            isSuccess = false,
+            errorMessage = guestResult.errorMessage ?: "目前無法建立訪客連線，請稍後再試。"
+        )
+    }
+
+    suspend fun refreshRegisteredToken(): TokenRecoveryResult {
+        val refreshToken = tokenStore.getRegisteredRefreshToken()
+        if (refreshToken.isNullOrBlank()) {
+            Log.w(TAG, "token recovery: missing refresh token")
+            return handleRefreshFailureAndFallbackToGuest()
+        }
+
+        val refreshResponse = runCatching {
+            authApi.refresh(RefreshTokenRequest(refresh_token = refreshToken))
+        }.getOrElse {
+            Log.w(TAG, "token recovery: refresh request failed")
+            return TokenRecoveryResult(
+                isSuccess = false,
+                errorMessage = "目前連線有點問題，請稍後再試。"
+            )
+        }
+
+        if (!refreshResponse.isSuccessful) {
+            val code = refreshResponse.code()
+            Log.w(TAG, "token recovery: refresh response failed code=$code")
+            if (code == 401) {
+                return handleRefreshFailureAndFallbackToGuest()
+            }
+            return TokenRecoveryResult(
+                isSuccess = false,
+                errorMessage = parseRefreshError(refreshResponse) ?: "目前連線有點問題，請稍後再試。"
+            )
+        }
+
+        val body = refreshResponse.body()
+        val accessToken = body?.token
+        if (body?.success == true && !accessToken.isNullOrBlank()) {
+            tokenStore.saveRegisteredAuth(
+                accessToken = accessToken,
+                expiresAt = body.expires_at,
+                refreshToken = body.refresh_token,
+                refreshExpiresAt = body.refresh_expires_at
+            )
+            Log.i(TAG, "token recovery: refresh success")
+            return TokenRecoveryResult(isSuccess = true)
+        }
+
+        Log.w(TAG, "token recovery: refresh body invalid")
+        return handleRefreshFailureAndFallbackToGuest()
+    }
+
     fun hasRegisteredToken(): Boolean = tokenStore.hasRegisteredToken()
 
     fun clearGuestAuthMemoryOnly() {
@@ -108,10 +182,24 @@ class AuthRepository(
     }
 
     suspend fun logoutRegisteredAndCreateGuest(): RepositoryResult<Unit> {
-        tokenStore.clearRegisteredToken()
+        tokenStore.clearRegisteredAuth()
         sessionStore.clearRegisteredSessionId()
         clearGuestAuthMemoryOnly()
         return createGuestToken()
+    }
+
+    private suspend fun handleRefreshFailureAndFallbackToGuest(): TokenRecoveryResult {
+        tokenStore.clearRegisteredAuth()
+        sessionStore.clearRegisteredSessionId()
+        val guestResult = recreateGuestTokenIfNeeded()
+        if (!guestResult.isSuccess) {
+            return guestResult
+        }
+        return TokenRecoveryResult(
+            isSuccess = false,
+            switchedToGuest = true,
+            errorMessage = "登入已過期，已切換為訪客模式。"
+        )
     }
 
     private fun parseRegisterError(response: Response<RegisterResponse>): String? {
@@ -130,5 +218,15 @@ class AuthRepository(
         val raw = response.errorBody()?.string().orEmpty()
         if (raw.isBlank()) return null
         return runCatching { gson.fromJson(raw, GuestAuthResponse::class.java)?.error_message }.getOrNull()
+    }
+
+    private fun parseRefreshError(response: Response<RefreshTokenResponse>): String? {
+        val raw = response.errorBody()?.string().orEmpty()
+        if (raw.isBlank()) return null
+        return runCatching { gson.fromJson(raw, RefreshTokenResponse::class.java)?.error_message }.getOrNull()
+    }
+
+    companion object {
+        private const val TAG = "AuthRepository"
     }
 }

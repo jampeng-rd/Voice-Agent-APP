@@ -8,11 +8,24 @@ class TokenStore(context: Context) {
     private var guestId: String? = null
     private var guestExpiresAt: String? = null
 
-    fun saveRegisteredToken(token: String) {
-        prefs.edit().putString(KEY_REGISTERED_TOKEN, token).apply()
+    fun saveRegisteredAuth(
+        accessToken: String,
+        expiresAt: String?,
+        refreshToken: String?,
+        refreshExpiresAt: String?
+    ) {
+        prefs.edit()
+            .putString(KEY_REGISTERED_TOKEN, accessToken)
+            .putString(KEY_REGISTERED_EXPIRES_AT, expiresAt)
+            .putString(KEY_REGISTERED_REFRESH_TOKEN, refreshToken)
+            .putString(KEY_REGISTERED_REFRESH_EXPIRES_AT, refreshExpiresAt)
+            .apply()
     }
 
     fun getRegisteredToken(): String? = prefs.getString(KEY_REGISTERED_TOKEN, null)
+    fun getRegisteredExpiresAt(): String? = prefs.getString(KEY_REGISTERED_EXPIRES_AT, null)
+    fun getRegisteredRefreshToken(): String? = prefs.getString(KEY_REGISTERED_REFRESH_TOKEN, null)
+    fun getRegisteredRefreshExpiresAt(): String? = prefs.getString(KEY_REGISTERED_REFRESH_EXPIRES_AT, null)
 
     fun hasRegisteredToken(): Boolean = !getRegisteredToken().isNullOrBlank()
 
@@ -32,8 +45,13 @@ class TokenStore(context: Context) {
         guestExpiresAt = null
     }
 
-    fun clearRegisteredToken() {
-        prefs.edit().remove(KEY_REGISTERED_TOKEN).apply()
+    fun clearRegisteredAuth() {
+        prefs.edit()
+            .remove(KEY_REGISTERED_TOKEN)
+            .remove(KEY_REGISTERED_EXPIRES_AT)
+            .remove(KEY_REGISTERED_REFRESH_TOKEN)
+            .remove(KEY_REGISTERED_REFRESH_EXPIRES_AT)
+            .apply()
     }
 
     fun getGuestId(): String? = guestId
@@ -49,12 +67,15 @@ class TokenStore(context: Context) {
     fun isUsingGuestToken(): Boolean = !hasRegisteredToken() && hasGuestToken()
 
     fun clearAllAuth() {
-        clearRegisteredToken()
+        clearRegisteredAuth()
         clearGuestAuth()
     }
 
     companion object {
         private const val PREFS_NAME = "voice_agent_prefs"
         private const val KEY_REGISTERED_TOKEN = "registered_auth_token"
+        private const val KEY_REGISTERED_EXPIRES_AT = "registered_auth_expires_at"
+        private const val KEY_REGISTERED_REFRESH_TOKEN = "registered_refresh_token"
+        private const val KEY_REGISTERED_REFRESH_EXPIRES_AT = "registered_refresh_expires_at"
     }
 }

@@ -16,8 +16,7 @@ import retrofit2.Response
 
 data class ChatSendResult(
     val aiReply: String? = null,
-    val errorMessage: String? = null,
-    val requiresLogin: Boolean = false
+    val errorMessage: String? = null
 ) {
     val isSuccess: Boolean = !aiReply.isNullOrBlank() && errorMessage == null
 }
@@ -25,11 +24,19 @@ data class ChatSendResult(
 class ChatRepository(
     private val chatApi: ChatApi,
     private val tokenStore: TokenStore,
-    private val sessionStore: SessionStore
+    private val sessionStore: SessionStore,
+    private val authRepository: AuthRepository
 ) {
     private val gson = Gson()
 
     suspend fun sendText(text: String): ChatSendResult {
+        return sendTextInternal(text = text, hasRetriedAfterRecovery = false)
+    }
+
+    private suspend fun sendTextInternal(
+        text: String,
+        hasRetriedAfterRecovery: Boolean
+    ): ChatSendResult {
         val usingRegistered = tokenStore.isUsingRegisteredToken()
         val token = if (usingRegistered) {
             tokenStore.getRegisteredToken()
@@ -53,11 +60,20 @@ class ChatRepository(
             )
         }.fold(
             onSuccess = { response ->
-                handleChatResponse(response)
+                handleChatResponse(
+                    response = response,
+                    originalText = text,
+                    usingRegistered = usingRegistered,
+                    hasRetriedAfterRecovery = hasRetriedAfterRecovery
+                )
             },
             onFailure = { throwable ->
                 val (uiMessage, type) = classifyThrowable(throwable)
-                Log.w(TAG, "chat send failed: type=$type sessionId=$sessionId message=${throwable.message}")
+                val identity = if (usingRegistered) "registered" else "guest"
+                Log.w(
+                    TAG,
+                    "chat send failed: type=$type identity=$identity retry=$hasRetriedAfterRecovery message=${throwable.message}"
+                )
                 ChatSendResult(errorMessage = uiMessage)
             }
         )
@@ -67,7 +83,12 @@ class ChatRepository(
         sessionStore.clearAllSessionIds()
     }
 
-    private fun handleChatResponse(response: Response<ChatResponse>): ChatSendResult {
+    private suspend fun handleChatResponse(
+        response: Response<ChatResponse>,
+        originalText: String,
+        usingRegistered: Boolean,
+        hasRetriedAfterRecovery: Boolean
+    ): ChatSendResult {
         if (response.isSuccessful) {
             val body = runCatching { response.body() }.getOrElse { parseError ->
                 Log.w(TAG, "chat response parse failed on success body: message=${parseError.message}")
@@ -88,26 +109,43 @@ class ChatRepository(
 
         val parsedError = parseErrorMessage(response)
         val code = response.code()
-        val requiresLogin = code == 401 && tokenStore.isUsingRegisteredToken()
+        val identity = if (usingRegistered) "registered" else "guest"
         val type = when {
             code == 401 -> "unauthorized"
             code in 400..499 -> "client_error"
             code >= 500 -> "server_error"
             else -> "http_error"
         }
-        Log.w(TAG, "chat response failed: type=$type code=$code error=$parsedError")
+        Log.w(TAG, "chat response failed: type=$type code=$code identity=$identity retry=$hasRetriedAfterRecovery")
+
+        if (code == 401 && !hasRetriedAfterRecovery) {
+            Log.i(TAG, "chat token recovery start: identity=$identity")
+            val recoveryResult = if (usingRegistered) {
+                authRepository.refreshRegisteredToken()
+            } else {
+                authRepository.recreateGuestTokenIfNeeded()
+            }
+            if (recoveryResult.isSuccess) {
+                Log.i(TAG, "chat token recovery success: identity=$identity retry=true")
+                return sendTextInternal(
+                    text = originalText,
+                    hasRetriedAfterRecovery = true
+                )
+            }
+            Log.w(TAG, "chat token recovery failed: identity=$identity switchedToGuest=${recoveryResult.switchedToGuest}")
+            return ChatSendResult(
+                errorMessage = recoveryResult.errorMessage
+                    ?: if (usingRegistered) "登入已過期，已切換為訪客模式。" else "目前無法建立訪客連線，請稍後再試。"
+            )
+        }
 
         val uiMessage = when {
-            requiresLogin -> parsedError ?: "登入狀態已失效，請重新登入。"
             code == 401 -> parsedError ?: "目前無法建立訪客連線，請稍後再試。"
             code in 400..499 -> parsedError ?: "請求格式或內容有誤，請稍後再試。"
             code >= 500 -> parsedError ?: "伺服器忙碌中，請稍後再試。"
             else -> parsedError ?: "目前連線有點問題，請稍後再試。"
         }
-        return ChatSendResult(
-            errorMessage = uiMessage,
-            requiresLogin = requiresLogin
-        )
+        return ChatSendResult(errorMessage = uiMessage)
     }
 
     private fun parseErrorMessage(response: Response<ChatResponse>): String? {
