@@ -5,22 +5,79 @@ import java.util.UUID
 
 class SessionStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private var guestSessionId: String? = null
 
-    fun getOrCreateSessionId(): String {
-        val existing = prefs.getString(KEY_SESSION_ID, null)
+    fun getOrCreateRegisteredSessionId(): String {
+        val existing = prefs.getString(KEY_REGISTERED_SESSION_ID, null)
         if (!existing.isNullOrBlank()) return existing
 
         val newSessionId = UUID.randomUUID().toString()
-        prefs.edit().putString(KEY_SESSION_ID, newSessionId).apply()
+        prefs.edit().putString(KEY_REGISTERED_SESSION_ID, newSessionId).apply()
         return newSessionId
     }
 
-    fun clearSessionId() {
-        prefs.edit().remove(KEY_SESSION_ID).apply()
+    fun getOrCreateGuestSessionId(): String {
+        val existing = guestSessionId
+        if (!existing.isNullOrBlank()) return existing
+
+        val newSessionId = UUID.randomUUID().toString()
+        guestSessionId = newSessionId
+        return newSessionId
+    }
+
+    fun getOrCreateSessionId(isRegistered: Boolean): String {
+        return if (isRegistered) {
+            getOrCreateRegisteredSessionId()
+        } else {
+            getOrCreateGuestSessionId()
+        }
+    }
+
+    fun promoteGuestSessionToRegistered() {
+        val guestSession = guestSessionId
+        if (guestSession.isNullOrBlank()) return
+        prefs.edit().putString(KEY_REGISTERED_SESSION_ID, guestSession).apply()
+        guestSessionId = null
+    }
+
+    fun clearRegisteredSessionId() {
+        prefs.edit().remove(KEY_REGISTERED_SESSION_ID).apply()
+    }
+
+    fun clearGuestSessionId() {
+        guestSessionId = null
+    }
+
+    fun clearAllSessionIds() {
+        clearRegisteredSessionId()
+        clearGuestSessionId()
+    }
+
+    fun hasGuestSessionId(): Boolean = !guestSessionId.isNullOrBlank()
+
+    fun peekGuestSessionId(): String? = guestSessionId
+
+    fun peekRegisteredSessionId(): String? = prefs.getString(KEY_REGISTERED_SESSION_ID, null)
+
+    fun saveRegisteredSessionId(sessionId: String) {
+        prefs.edit().putString(KEY_REGISTERED_SESSION_ID, sessionId).apply()
+    }
+
+    fun replaceRegisteredWithGuestSessionIfAvailable() {
+        val guestSession = guestSessionId
+        if (guestSession.isNullOrBlank()) return
+        saveRegisteredSessionId(guestSession)
+        guestSessionId = null
+    }
+
+    fun createFreshGuestSessionId(): String {
+        val newSessionId = UUID.randomUUID().toString()
+        guestSessionId = newSessionId
+        return newSessionId
     }
 
     companion object {
         private const val PREFS_NAME = "voice_agent_prefs"
-        private const val KEY_SESSION_ID = "chat_session_id"
+        private const val KEY_REGISTERED_SESSION_ID = "registered_chat_session_id"
     }
 }

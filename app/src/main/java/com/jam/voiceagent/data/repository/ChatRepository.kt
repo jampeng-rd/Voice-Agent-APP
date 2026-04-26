@@ -30,15 +30,19 @@ class ChatRepository(
     private val gson = Gson()
 
     suspend fun sendText(text: String): ChatSendResult {
-        val token = tokenStore.getToken()
+        val usingRegistered = tokenStore.isUsingRegisteredToken()
+        val token = if (usingRegistered) {
+            tokenStore.getRegisteredToken()
+        } else {
+            tokenStore.getGuestToken()
+        }
         if (token.isNullOrBlank()) {
             return ChatSendResult(
-                errorMessage = "請先登入後再試。",
-                requiresLogin = true
+                errorMessage = "目前無法建立訪客連線，請稍後再試。"
             )
         }
 
-        val sessionId = sessionStore.getOrCreateSessionId()
+        val sessionId = sessionStore.getOrCreateSessionId(isRegistered = usingRegistered)
         return runCatching {
             chatApi.sendText(
                 authorization = "Bearer $token",
@@ -60,7 +64,7 @@ class ChatRepository(
     }
 
     fun clearSession() {
-        sessionStore.clearSessionId()
+        sessionStore.clearAllSessionIds()
     }
 
     private fun handleChatResponse(response: Response<ChatResponse>): ChatSendResult {
@@ -84,7 +88,7 @@ class ChatRepository(
 
         val parsedError = parseErrorMessage(response)
         val code = response.code()
-        val requiresLogin = code == 401
+        val requiresLogin = code == 401 && tokenStore.isUsingRegisteredToken()
         val type = when {
             code == 401 -> "unauthorized"
             code in 400..499 -> "client_error"
@@ -95,6 +99,7 @@ class ChatRepository(
 
         val uiMessage = when {
             requiresLogin -> parsedError ?: "登入狀態已失效，請重新登入。"
+            code == 401 -> parsedError ?: "目前無法建立訪客連線，請稍後再試。"
             code in 400..499 -> parsedError ?: "請求格式或內容有誤，請稍後再試。"
             code >= 500 -> parsedError ?: "伺服器忙碌中，請稍後再試。"
             else -> parsedError ?: "目前連線有點問題，請稍後再試。"

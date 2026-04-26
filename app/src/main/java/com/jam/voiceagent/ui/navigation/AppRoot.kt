@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +26,7 @@ import com.jam.voiceagent.ui.screens.AssistantHomeScreen
 import com.jam.voiceagent.ui.screens.auth.LoginScreen
 import com.jam.voiceagent.ui.screens.auth.RegisterScreen
 import com.jam.voiceagent.ui.screens.chat.ChatPlaceholderScreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppRoot() {
@@ -34,7 +36,8 @@ fun AppRoot() {
     val authRepository = remember(context) {
         AuthRepository(
             authApi = ApiClient.authApi,
-            tokenStore = tokenStore
+            tokenStore = tokenStore,
+            sessionStore = sessionStore
         )
     }
     val chatRepository = remember(context) {
@@ -46,12 +49,24 @@ fun AppRoot() {
     }
 
     var route by rememberSaveable { mutableStateOf(AppRoute.Home) }
-    var isLoggedIn by rememberSaveable { mutableStateOf(false) }
-    var isChatBusy by rememberSaveable { mutableStateOf(false) }
-    var latestAssistantReply by rememberSaveable { mutableStateOf("") }
+    var isLoggedIn by remember { mutableStateOf(false) }
+    var isChatBusy by remember { mutableStateOf(false) }
+    var latestAssistantReply by remember { mutableStateOf("") }
+    var guestStartupErrorMessage by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(authRepository) {
-        isLoggedIn = authRepository.hasToken()
+        isLoggedIn = authRepository.hasRegisteredToken()
+        if (!isLoggedIn) {
+            val result = authRepository.ensureGuestToken()
+            guestStartupErrorMessage = if (result.isSuccess) {
+                ""
+            } else {
+                result.errorMessage ?: "目前無法建立訪客連線，請稍後再試。"
+            }
+        } else {
+            guestStartupErrorMessage = ""
+        }
     }
 
     val goHome: () -> Unit = {
@@ -67,10 +82,17 @@ fun AppRoot() {
     val userAction: () -> Unit = {
         if (!isChatBusy) {
             if (isLoggedIn) {
-                authRepository.clearToken()
-                chatRepository.clearSession()
-                isLoggedIn = false
-                route = AppRoute.Home
+                scope.launch {
+                    val logoutResult = authRepository.logoutRegisteredAndCreateGuest()
+                    chatRepository.clearSession()
+                    isLoggedIn = false
+                    guestStartupErrorMessage = if (logoutResult.isSuccess) {
+                        ""
+                    } else {
+                        logoutResult.errorMessage ?: "目前無法建立訪客連線，請稍後再試。"
+                    }
+                    route = AppRoute.Home
+                }
             } else {
                 route = AppRoute.Login
             }
@@ -88,12 +110,11 @@ fun AppRoot() {
                 chatRepository = chatRepository,
                 isChatBusy = isChatBusy,
                 latestAssistantReply = latestAssistantReply,
+                startupErrorMessage = guestStartupErrorMessage,
                 onChatBusyChange = { isChatBusy = it },
                 onAssistantReplyChange = { latestAssistantReply = it },
-                onRequireLogin = {
-                    isChatBusy = false
-                    isLoggedIn = false
-                    route = AppRoute.Login
+                onStartupErrorConsumed = {
+                    guestStartupErrorMessage = ""
                 }
             )
         }
@@ -108,6 +129,7 @@ fun AppRoot() {
                 onGoRegister = { route = AppRoute.Register },
                 onLoginSuccess = {
                     isLoggedIn = true
+                    guestStartupErrorMessage = ""
                     route = AppRoute.Chat
                 }
             )
@@ -136,6 +158,7 @@ fun AppRoot() {
                     onGoRegister = { route = AppRoute.Register },
                     onLoginSuccess = {
                         isLoggedIn = true
+                        guestStartupErrorMessage = ""
                         route = AppRoute.Chat
                     }
                 )

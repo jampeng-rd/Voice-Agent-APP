@@ -1,8 +1,10 @@
 package com.jam.voiceagent.data.repository
 
 import com.google.gson.Gson
+import com.jam.voiceagent.data.local.SessionStore
 import com.jam.voiceagent.data.local.TokenStore
 import com.jam.voiceagent.data.model.AuthRequest
+import com.jam.voiceagent.data.model.GuestAuthResponse
 import com.jam.voiceagent.data.model.LoginResponse
 import com.jam.voiceagent.data.model.RegisterResponse
 import com.jam.voiceagent.data.network.AuthApi
@@ -10,7 +12,8 @@ import retrofit2.Response
 
 class AuthRepository(
     private val authApi: AuthApi,
-    private val tokenStore: TokenStore
+    private val tokenStore: TokenStore,
+    private val sessionStore: SessionStore
 ) {
     private val gson = Gson()
 
@@ -45,7 +48,9 @@ class AuthRepository(
                     val body = response.body()
                     val token = body?.token
                     if (body?.success == true && !token.isNullOrBlank()) {
-                        tokenStore.saveToken(token)
+                        tokenStore.saveRegisteredToken(token)
+                        sessionStore.promoteGuestSessionToRegistered()
+                        tokenStore.clearGuestAuth()
                         RepositoryResult(data = Unit)
                     } else {
                         RepositoryResult(errorMessage = body?.error_message ?: "登入失敗，請確認帳號密碼。")
@@ -60,10 +65,53 @@ class AuthRepository(
         )
     }
 
-    fun hasToken(): Boolean = !tokenStore.getToken().isNullOrBlank()
+    suspend fun ensureGuestToken(): RepositoryResult<Unit> {
+        if (tokenStore.hasRegisteredToken() || tokenStore.hasGuestToken()) {
+            return RepositoryResult(data = Unit)
+        }
+        return createGuestToken()
+    }
 
-    fun clearToken() {
-        tokenStore.clearToken()
+    suspend fun createGuestToken(): RepositoryResult<Unit> {
+        return runCatching {
+            authApi.guest()
+        }.fold(
+            onSuccess = { response ->
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    val token = body?.token
+                    if (body?.success == true && !token.isNullOrBlank()) {
+                        tokenStore.saveGuestAuth(
+                            token = token,
+                            guestId = body.guest_id,
+                            expiresAt = body.expires_at
+                        )
+                        RepositoryResult(data = Unit)
+                    } else {
+                        RepositoryResult(errorMessage = body?.error_message ?: "目前無法建立訪客連線，請稍後再試。")
+                    }
+                } else {
+                    RepositoryResult(errorMessage = parseGuestError(response) ?: "目前無法建立訪客連線，請稍後再試。")
+                }
+            },
+            onFailure = {
+                RepositoryResult(errorMessage = "目前無法建立訪客連線，請稍後再試。")
+            }
+        )
+    }
+
+    fun hasRegisteredToken(): Boolean = tokenStore.hasRegisteredToken()
+
+    fun clearGuestAuthMemoryOnly() {
+        tokenStore.clearGuestAuth()
+        sessionStore.clearGuestSessionId()
+    }
+
+    suspend fun logoutRegisteredAndCreateGuest(): RepositoryResult<Unit> {
+        tokenStore.clearRegisteredToken()
+        sessionStore.clearRegisteredSessionId()
+        clearGuestAuthMemoryOnly()
+        return createGuestToken()
     }
 
     private fun parseRegisterError(response: Response<RegisterResponse>): String? {
@@ -76,5 +124,11 @@ class AuthRepository(
         val raw = response.errorBody()?.string().orEmpty()
         if (raw.isBlank()) return null
         return runCatching { gson.fromJson(raw, LoginResponse::class.java)?.error_message }.getOrNull()
+    }
+
+    private fun parseGuestError(response: Response<GuestAuthResponse>): String? {
+        val raw = response.errorBody()?.string().orEmpty()
+        if (raw.isBlank()) return null
+        return runCatching { gson.fromJson(raw, GuestAuthResponse::class.java)?.error_message }.getOrNull()
     }
 }

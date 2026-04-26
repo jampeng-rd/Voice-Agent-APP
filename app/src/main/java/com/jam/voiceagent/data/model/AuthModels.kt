@@ -20,3 +20,11 @@ data class LoginResponse(
     val expires_at: String?,
     val error_message: String?
 )
+
+data class GuestAuthResponse(
+    val success: Boolean,
+    val token: String?,
+    val guest_id: String?,
+    val expires_at: String?,
+    val error_message: String?
+)

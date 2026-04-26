@@ -1,6 +1,7 @@
 package com.jam.voiceagent.data.network
 
 import com.jam.voiceagent.data.model.AuthRequest
+import com.jam.voiceagent.data.model.GuestAuthResponse
 import com.jam.voiceagent.data.model.LoginResponse
 import com.jam.voiceagent.data.model.RegisterResponse
 import retrofit2.Response
@@ -8,6 +9,9 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 interface AuthApi {
+    @POST("api/auth/guest")
+    suspend fun guest(): Response<GuestAuthResponse>
+
     @POST("api/auth/register")
     suspend fun register(
         @Body request: AuthRequest

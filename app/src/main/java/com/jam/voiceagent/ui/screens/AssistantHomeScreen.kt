@@ -84,9 +84,10 @@ fun AssistantHomeScreen(
     chatRepository: ChatRepository,
     isChatBusy: Boolean,
     latestAssistantReply: String,
+    startupErrorMessage: String,
     onChatBusyChange: (Boolean) -> Unit,
     onAssistantReplyChange: (String) -> Unit,
-    onRequireLogin: () -> Unit
+    onStartupErrorConsumed: () -> Unit
 ) {
     var state by rememberSaveable { mutableStateOf(AvatarState.Idle) }
     var isTextInputMode by rememberSaveable { mutableStateOf(false) }
@@ -243,6 +244,7 @@ fun AssistantHomeScreen(
         state == AvatarState.Listening -> AvatarState.Listening.statusText
         state == AvatarState.Thinking -> AvatarState.Thinking.statusText
         state == AvatarState.Speaking -> AvatarState.Speaking.statusText
+        startupErrorMessage.isNotBlank() && latestAssistantReply.isBlank() -> startupErrorMessage
         state == AvatarState.Idle && touchAffectionHandler.affectionLevel > 0.75f -> "好舒服呀～"
         latestAssistantReply.isNotBlank() -> latestAssistantReply
         else -> state.statusText
@@ -272,10 +274,6 @@ fun AssistantHomeScreen(
                     onAssistantReplyChange(result.errorMessage ?: "目前連線有點問題，請稍後再試。")
                     state = AvatarState.Confused
                     delay(900)
-                    if (result.requiresLogin) {
-                        onRequireLogin()
-                        return@launch
-                    }
                     if (state == AvatarState.Confused) {
                         state = AvatarState.Idle
                     }
@@ -306,10 +304,12 @@ fun AssistantHomeScreen(
                 },
                 onChatClick = {
                     resetIdleTimer()
+                    onStartupErrorConsumed()
                     onNavigateChat()
                 },
                 onUserClick = {
                     resetIdleTimer()
+                    onStartupErrorConsumed()
                     onUserAction()
                 },
                 modifier = Modifier

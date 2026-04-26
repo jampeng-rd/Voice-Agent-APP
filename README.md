@@ -127,7 +127,7 @@
 ## 6. 已知限制
 
 - 已串接 `POST /api/auth/register`、`POST /api/auth/login`、`POST /api/chat`（文字模式）
-- 目前未串接 guest token（`/api/auth/guest`）
+- 已串接 guest token（`POST /api/auth/guest`）並採 memory-only（不落地保存）
 - 尚未實作真正語音錄音與播放
 - Chat 歷史頁目前仍為假資料頁，未串接 conversations API
 - Chat 左滑刪除目前僅本地 UI 原型，未串接刪除 API
@@ -282,11 +282,13 @@
 - Auth 流程改為真 API：
   - `POST /api/auth/register`
   - `POST /api/auth/login`
-- Login 成功後保存 server 回傳 token（SharedPreferences）
+- Login 成功後保存 registered token（SharedPreferences）
 - Text mode 送出改為呼叫 `POST /api/chat`
   - Header: `Authorization: Bearer <token>`
   - Body: `{ "session_id": "<uuid>", "text": "<input>" }`
-- `session_id` 使用 UUID 產生並保存於 SharedPreferences，同一段對話持續沿用
+- `session_id` 採身份分流：
+  - registered：保存於 SharedPreferences
+  - guest：僅存在 App process memory
 - Home 文字流程綁定角色狀態：
   - 送出中：`Thinking`
   - 收到回覆：短暫 `Speaking` 後回 `Idle`
@@ -318,3 +320,29 @@
   - 4xx client error
   - 5xx server error
   - response parse error
+
+## 25. Phase Android-API-02 Guest Token 啟動流程摘要
+
+- App 啟動時：
+  - 若有 registered token，沿用 registered flow
+  - 若無 registered token，自動呼叫 `POST /api/auth/guest`
+- Home 文字聊天支援 guest / registered 兩種 token，不再因未登入直接導向 Login
+- guest 相關資料全部 memory-only，不寫入 SharedPreferences：
+  - guest token
+  - guest_id
+  - guest expires_at
+  - guest session_id
+  - guest latestAssistantReply / chat 狀態
+- registered 相關資料持久保存規則：
+  - registered token：SharedPreferences
+  - registered session_id：SharedPreferences
+- guest -> registered（登入成功）：
+  - registered token 取代 guest token
+  - 清除 guest memory auth
+  - 同一次 App process 內保留原 guest session_id，交給 registered flow 延續
+- logout（registered）：
+  - 清除 registered token 與 registered session_id
+  - 立即重新建立新的 memory-only guest token
+- guest token 建立失敗時：
+  - Home 不閃退
+  - 顯示 `目前無法建立訪客連線，請稍後再試。`
