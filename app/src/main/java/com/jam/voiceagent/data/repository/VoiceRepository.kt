@@ -26,7 +26,8 @@ import retrofit2.Response
 data class VoiceRoundResult(
     val aiReply: String? = null,
     val replyAudioFile: File? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val switchedToGuest: Boolean = false
 ) {
     val isSuccess: Boolean = errorMessage == null
 }
@@ -137,7 +138,8 @@ class VoiceRepository(
                 )
                 return VoiceRoundResult(
                     errorMessage = recoveryResult.errorMessage
-                        ?: if (usingRegistered) "登入已過期，已切換為訪客模式。" else "目前無法建立訪客連線，請稍後再試。"
+                        ?: if (usingRegistered) "登入已過期，已切換為訪客模式。" else "目前無法建立訪客連線，請稍後再試。",
+                    switchedToGuest = recoveryResult.switchedToGuest
                 )
             }
 

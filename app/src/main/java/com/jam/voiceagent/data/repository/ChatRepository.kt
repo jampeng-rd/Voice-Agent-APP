@@ -16,7 +16,8 @@ import retrofit2.Response
 
 data class ChatSendResult(
     val aiReply: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val switchedToGuest: Boolean = false
 ) {
     val isSuccess: Boolean = !aiReply.isNullOrBlank() && errorMessage == null
 }
@@ -135,7 +136,8 @@ class ChatRepository(
             Log.w(TAG, "chat token recovery failed: identity=$identity switchedToGuest=${recoveryResult.switchedToGuest}")
             return ChatSendResult(
                 errorMessage = recoveryResult.errorMessage
-                    ?: if (usingRegistered) "登入已過期，已切換為訪客模式。" else "目前無法建立訪客連線，請稍後再試。"
+                    ?: if (usingRegistered) "登入已過期，已切換為訪客模式。" else "目前無法建立訪客連線，請稍後再試。",
+                switchedToGuest = recoveryResult.switchedToGuest
             )
         }
 

@@ -97,6 +97,7 @@ fun AssistantHomeScreen(
     startupErrorMessage: String,
     onChatBusyChange: (Boolean) -> Unit,
     onAssistantReplyChange: (String) -> Unit,
+    onAuthSwitchedToGuest: () -> Unit,
     onStartupErrorConsumed: () -> Unit
 ) {
     var state by rememberSaveable { mutableStateOf(AvatarState.Idle) }
@@ -327,6 +328,9 @@ fun AssistantHomeScreen(
         scope.launch {
             try {
                 val result = chatRepository.sendText(requestText)
+                if (result.switchedToGuest) {
+                    onAuthSwitchedToGuest()
+                }
                 if (result.isSuccess) {
                     onAssistantReplyChange(result.aiReply.orEmpty())
                     state = AvatarState.Speaking
@@ -369,6 +373,9 @@ fun AssistantHomeScreen(
         scope.launch {
             try {
                 val voiceResult = voiceRepository.sendVoiceRound(recordedFile)
+                if (voiceResult.switchedToGuest) {
+                    onAuthSwitchedToGuest()
+                }
                 if (!voiceResult.aiReply.isNullOrBlank()) {
                     onAssistantReplyChange(voiceResult.aiReply)
                 }

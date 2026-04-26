@@ -125,6 +125,9 @@ fun AppRoot() {
                 startupErrorMessage = guestStartupErrorMessage,
                 onChatBusyChange = { isChatBusy = it },
                 onAssistantReplyChange = { latestAssistantReply = it },
+                onAuthSwitchedToGuest = {
+                    isLoggedIn = false
+                },
                 onStartupErrorConsumed = {
                     guestStartupErrorMessage = ""
                 }
