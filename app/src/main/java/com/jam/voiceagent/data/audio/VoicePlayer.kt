@@ -9,9 +9,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 
 class VoicePlayer {
     private var mediaPlayer: MediaPlayer? = null
+    private var activeAudioFile: File? = null
 
     suspend fun playAndAwait(file: File) {
         stopAndRelease()
+        activeAudioFile = file
         return suspendCancellableCoroutine { continuation ->
             val player = MediaPlayer()
             mediaPlayer = player
@@ -71,5 +73,11 @@ class VoicePlayer {
             player.release()
         }
         mediaPlayer = null
+        activeAudioFile?.let { file ->
+            runCatching {
+                if (file.exists()) file.delete()
+            }
+        }
+        activeAudioFile = null
     }
 }

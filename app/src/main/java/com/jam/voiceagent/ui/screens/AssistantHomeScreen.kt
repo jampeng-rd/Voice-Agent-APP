@@ -376,8 +376,10 @@ fun AssistantHomeScreen(
 
                 if (replyFile == null) {
                     state = AvatarState.Idle
+                    val noAudioMessage = "目前只有文字回覆，沒有可播放的語音。"
+                    val textOnlyReply = voiceResult.aiReply?.takeIf { it.isNotBlank() }
                     onAssistantReplyChange(
-                        voiceResult.aiReply ?: "目前收到文字回覆，但伺服器未提供可播放音訊。"
+                        if (textOnlyReply == null) noAudioMessage else "$textOnlyReply\n$noAudioMessage"
                     )
                     return@launch
                 }

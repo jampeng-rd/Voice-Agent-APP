@@ -379,3 +379,19 @@
   - 完成/失敗/取消/畫面釋放時刪除暫存音訊檔
   - 不寫入 SharedPreferences / DataStore / Room / SQLite
 - Logcat 不印 token，且不輸出完整 STT 文字。
+
+## 27. Phase Android-VOICE-01.1 output_audio_url 播放摘要
+
+- `/api/voice/round` response model 新增 `output_audio_url`，並保留 `output_wav`。
+- Android 改為優先使用 `output_audio_url`；`output_wav` 只作 fallback/debug 參考，不再當 Android 本機檔路徑讀取。
+- 當 `output_audio_url` 是相對路徑（例如 `/api/audio/xxx.wav`）時，使用 `ApiConfig.baseUrl` 組成完整下載 URL。
+- 音訊檔下載後寫入 `cacheDir`，再交由 `MediaPlayer` 播放本地暫存檔。
+- `VoicePlayer` 在播放完成、失敗、取消、release 時都會釋放播放器並刪除目前暫存音訊檔。
+- `output_audio_url = null` 時：
+  - 仍顯示 `ai_reply`
+  - 並加上提示 `目前只有文字回覆，沒有可播放的語音。`
+- 音訊下載錯誤文案：
+  - 404：`語音回覆已過期，請再試一次。`
+  - timeout：`語音回覆下載逾時，請稍後再試。`
+  - 其他下載失敗：`語音回覆下載失敗，請稍後再試。`
+- voice busy 鎖定延續至錄音、上傳、下載、播放整段流程。

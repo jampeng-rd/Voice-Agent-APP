@@ -6,6 +6,7 @@ import com.jam.voiceagent.data.local.SessionStore
 import com.jam.voiceagent.data.local.TokenStore
 import com.jam.voiceagent.data.model.VoiceRoundResponse
 import com.jam.voiceagent.data.network.ApiClient
+import com.jam.voiceagent.data.network.ApiConfig
 import com.jam.voiceagent.data.network.VoiceApi
 import java.io.File
 import java.io.IOException
@@ -37,6 +38,10 @@ class VoiceRepository(
     private val cacheDir: File
 ) {
     private val gson = Gson()
+    private data class ResolvedAudio(
+        val file: File? = null,
+        val errorMessage: String? = null
+    )
 
     suspend fun sendVoiceRound(recordedWavFile: File): VoiceRoundResult {
         val usingRegistered = tokenStore.isUsingRegisteredToken()
@@ -109,52 +114,91 @@ class VoiceRepository(
             return VoiceRoundResult(errorMessage = body.error_message ?: "語音回合處理失敗，請稍後再試。")
         }
 
-        val replyAudio = resolveReplyAudioFile(body.output_wav)
+        val resolvedAudio = resolveReplyAudioFile(
+            outputAudioUrl = body.output_audio_url,
+            outputWav = body.output_wav
+        )
+        if (!resolvedAudio.errorMessage.isNullOrBlank()) {
+            return VoiceRoundResult(
+                aiReply = body.ai_reply?.takeIf { it.isNotBlank() },
+                errorMessage = resolvedAudio.errorMessage
+            )
+        }
+
         return VoiceRoundResult(
-            aiReply = body.ai_reply.takeIf { it.isNotBlank() },
-            replyAudioFile = replyAudio
+            aiReply = body.ai_reply?.takeIf { it.isNotBlank() },
+            replyAudioFile = resolvedAudio.file
         )
     }
 
-    private suspend fun resolveReplyAudioFile(outputWav: String?): File? {
-        if (outputWav.isNullOrBlank()) return null
-        val trimmed = outputWav.trim()
-        return when {
-            trimmed.startsWith("http://", ignoreCase = true) ||
-                trimmed.startsWith("https://", ignoreCase = true) -> {
-                downloadAudioToCache(trimmed)
-            }
+    private suspend fun resolveReplyAudioFile(
+        outputAudioUrl: String?,
+        outputWav: String?
+    ): ResolvedAudio {
+        val downloadCandidate = outputAudioUrl?.trim().takeUnless { it.isNullOrBlank() }
+            ?: outputWav?.trim().takeUnless { it.isNullOrBlank() }
+            ?: return ResolvedAudio()
 
-            else -> {
-                val candidate = File(trimmed)
-                if (candidate.exists() && candidate.isFile) candidate else null
-            }
-        }
+        val downloadUrl = toDownloadUrl(downloadCandidate) ?: return ResolvedAudio()
+        return downloadAudioToCache(downloadUrl)
     }
 
-    private suspend fun downloadAudioToCache(url: String): File? = withContext(Dispatchers.IO) {
+    private fun toDownloadUrl(rawValue: String): String? {
+        val trimmed = rawValue.trim()
+        if (trimmed.isBlank()) return null
+
+        if (trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true) ||
+            trimmed.startsWith("/api/", ignoreCase = true) ||
+            trimmed.startsWith("api/", ignoreCase = true)
+        ) {
+            return ApiConfig.resolveUrl(trimmed)
+        }
+
+        Log.w(TAG, "skip non-downloadable audio path")
+        return null
+    }
+
+    private suspend fun downloadAudioToCache(url: String): ResolvedAudio = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).get().build()
-        val response = ApiClient.rawHttpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            response.close()
-            return@withContext null
-        }
-
-        val body = response.body ?: run {
-            response.close()
-            return@withContext null
-        }
-
-        val target = File(cacheDir, "voice-reply-${UUID.randomUUID()}.wav")
-        return@withContext runCatching {
-            target.outputStream().use { output ->
-                body.byteStream().use { input ->
-                    input.copyTo(output)
+        val response = runCatching { ApiClient.rawHttpClient.newCall(request).execute() }
+            .getOrElse { throwable ->
+                val message = when (throwable) {
+                    is SocketTimeoutException -> "語音回覆下載逾時，請稍後再試。"
+                    is UnknownHostException,
+                    is ConnectException -> "目前無法連線到伺服器，請確認網路與伺服器狀態。"
+                    is IOException -> "語音回覆下載失敗，請稍後再試。"
+                    else -> "語音回覆下載失敗，請稍後再試。"
                 }
+                return@withContext ResolvedAudio(errorMessage = message)
             }
-            target
-        }.getOrNull().also {
-            response.close()
+
+        response.use { rawResponse ->
+            if (!rawResponse.isSuccessful) {
+                return@withContext ResolvedAudio(
+                    errorMessage = when (rawResponse.code) {
+                        404 -> "語音回覆已過期，請再試一次。"
+                        else -> "語音回覆下載失敗，請稍後再試。"
+                    }
+                )
+            }
+
+            val body = rawResponse.body ?: return@withContext ResolvedAudio(
+                errorMessage = "語音回覆下載失敗，請稍後再試。"
+            )
+
+            val target = File(cacheDir, "voice-reply-${UUID.randomUUID()}.wav")
+            return@withContext runCatching {
+                target.outputStream().use { output ->
+                    body.byteStream().use { input ->
+                        input.copyTo(output)
+                    }
+                }
+                ResolvedAudio(file = target)
+            }.getOrElse {
+                runCatching { if (target.exists()) target.delete() }
+                ResolvedAudio(errorMessage = "語音回覆下載失敗，請稍後再試。")
+            }
         }
     }
 
