@@ -47,23 +47,33 @@ fun AppRoot() {
 
     var route by rememberSaveable { mutableStateOf(AppRoute.Home) }
     var isLoggedIn by rememberSaveable { mutableStateOf(false) }
+    var isChatBusy by rememberSaveable { mutableStateOf(false) }
+    var latestAssistantReply by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(authRepository) {
         isLoggedIn = authRepository.hasToken()
     }
 
-    val goHome: () -> Unit = { route = AppRoute.Home }
+    val goHome: () -> Unit = {
+        if (!isChatBusy) {
+            route = AppRoute.Home
+        }
+    }
     val goChat: () -> Unit = {
-        route = if (isLoggedIn) AppRoute.Chat else AppRoute.Login
+        if (!isChatBusy) {
+            route = if (isLoggedIn) AppRoute.Chat else AppRoute.Login
+        }
     }
     val userAction: () -> Unit = {
-        if (isLoggedIn) {
-            authRepository.clearToken()
-            chatRepository.clearSession()
-            isLoggedIn = false
-            route = AppRoute.Home
-        } else {
-            route = AppRoute.Login
+        if (!isChatBusy) {
+            if (isLoggedIn) {
+                authRepository.clearToken()
+                chatRepository.clearSession()
+                isLoggedIn = false
+                route = AppRoute.Home
+            } else {
+                route = AppRoute.Login
+            }
         }
     }
     HomeNavigationBarImmersiveEffect(enabled = route == AppRoute.Home)
@@ -76,7 +86,12 @@ fun AppRoot() {
                 onNavigateChat = goChat,
                 onUserAction = userAction,
                 chatRepository = chatRepository,
+                isChatBusy = isChatBusy,
+                latestAssistantReply = latestAssistantReply,
+                onChatBusyChange = { isChatBusy = it },
+                onAssistantReplyChange = { latestAssistantReply = it },
                 onRequireLogin = {
+                    isChatBusy = false
                     isLoggedIn = false
                     route = AppRoute.Login
                 }

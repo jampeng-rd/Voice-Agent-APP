@@ -82,6 +82,10 @@ fun AssistantHomeScreen(
     onNavigateChat: () -> Unit,
     onUserAction: () -> Unit,
     chatRepository: ChatRepository,
+    isChatBusy: Boolean,
+    latestAssistantReply: String,
+    onChatBusyChange: (Boolean) -> Unit,
+    onAssistantReplyChange: (String) -> Unit,
     onRequireLogin: () -> Unit
 ) {
     var state by rememberSaveable { mutableStateOf(AvatarState.Idle) }
@@ -89,8 +93,6 @@ fun AssistantHomeScreen(
     var isMicPressed by rememberSaveable { mutableStateOf(false) }
     var showDebugPanel by rememberSaveable { mutableStateOf(false) }
     var inputText by rememberSaveable { mutableStateOf("") }
-    var replyText by rememberSaveable { mutableStateOf("") }
-    var isSendingText by rememberSaveable { mutableStateOf(false) }
     var lastInteractionMs by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
@@ -242,42 +244,44 @@ fun AssistantHomeScreen(
         state == AvatarState.Thinking -> AvatarState.Thinking.statusText
         state == AvatarState.Speaking -> AvatarState.Speaking.statusText
         state == AvatarState.Idle && touchAffectionHandler.affectionLevel > 0.75f -> "好舒服呀～"
-        replyText.isNotBlank() -> replyText
+        latestAssistantReply.isNotBlank() -> latestAssistantReply
         else -> state.statusText
     }
 
     fun sendTextMessage() {
-        if (isSendingText) return
+        if (isChatBusy) return
         val requestText = inputText.trim()
         if (requestText.isBlank()) return
 
         resetIdleTimer()
         inputText = ""
-        isSendingText = true
+        onChatBusyChange(true)
         state = AvatarState.Thinking
 
         scope.launch {
-            val result = chatRepository.sendText(requestText)
-            isSendingText = false
-
-            if (result.isSuccess) {
-                replyText = result.aiReply.orEmpty()
-                state = AvatarState.Speaking
-                delay(900)
-                if (state == AvatarState.Speaking) {
-                    state = AvatarState.Idle
+            try {
+                val result = chatRepository.sendText(requestText)
+                if (result.isSuccess) {
+                    onAssistantReplyChange(result.aiReply.orEmpty())
+                    state = AvatarState.Speaking
+                    delay(900)
+                    if (state == AvatarState.Speaking) {
+                        state = AvatarState.Idle
+                    }
+                } else {
+                    onAssistantReplyChange(result.errorMessage ?: "目前連線有點問題，請稍後再試。")
+                    state = AvatarState.Confused
+                    delay(900)
+                    if (result.requiresLogin) {
+                        onRequireLogin()
+                        return@launch
+                    }
+                    if (state == AvatarState.Confused) {
+                        state = AvatarState.Idle
+                    }
                 }
-            } else {
-                replyText = result.errorMessage ?: "目前連線有點問題，請稍後再試。"
-                state = AvatarState.Confused
-                if (result.requiresLogin) {
-                    onRequireLogin()
-                    return@launch
-                }
-                delay(900)
-                if (state == AvatarState.Confused) {
-                    state = AvatarState.Idle
-                }
+            } finally {
+                onChatBusyChange(false)
             }
         }
     }
@@ -295,6 +299,7 @@ fun AssistantHomeScreen(
         ) {
             TopRightQuickMenu(
                 isLoggedIn = isLoggedIn,
+                enabled = !isChatBusy,
                 onHomeClick = {
                     resetIdleTimer()
                     onNavigateHome()
@@ -401,7 +406,7 @@ fun AssistantHomeScreen(
                     text = inputText,
                     onTextChange = { inputText = it },
                     onSendClick = ::sendTextMessage,
-                    enabled = !isSendingText,
+                    enabled = !isChatBusy,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 98.dp),
@@ -416,26 +421,31 @@ fun AssistantHomeScreen(
                 isTextInputMode = isTextInputMode,
                 isMicPressed = isMicPressed,
                 onMicPressState = { pressed ->
-                    if (!isTextInputMode) {
+                    if (!isTextInputMode && !isChatBusy) {
                         resetIdleTimer()
                         isMicPressed = pressed
                         state = if (pressed) AvatarState.Listening else AvatarState.Idle
                     }
                 },
                 onSwitchToTextMode = {
-                    resetIdleTimer()
-                    isTextInputMode = true
-                    isMicPressed = false
-                    if (state == AvatarState.Listening) state = AvatarState.Idle
+                    if (!isChatBusy) {
+                        resetIdleTimer()
+                        isTextInputMode = true
+                        isMicPressed = false
+                        if (state == AvatarState.Listening) state = AvatarState.Idle
+                    }
                 },
                 onSwitchToVoiceMode = {
-                    resetIdleTimer()
-                    isTextInputMode = false
-                    isMicPressed = false
-                    state = AvatarState.Idle
+                    if (!isChatBusy) {
+                        resetIdleTimer()
+                        isTextInputMode = false
+                        isMicPressed = false
+                        state = AvatarState.Idle
+                    }
                 },
                 onTextSend = ::sendTextMessage,
-                isTextSendEnabled = inputText.isNotBlank() && !isSendingText,
+                isTextSendEnabled = inputText.isNotBlank() && !isChatBusy,
+                isChatBusy = isChatBusy,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
@@ -470,8 +480,10 @@ fun AssistantHomeScreen(
                             modifier = Modifier
                                 .size(14.dp)
                                 .clickable {
-                                    resetIdleTimer()
-                                    showDebugPanel = !showDebugPanel
+                                    if (!isChatBusy) {
+                                        resetIdleTimer()
+                                        showDebugPanel = !showDebugPanel
+                                    }
                                 }
                                 .alpha(0.72f)
                         )
@@ -497,8 +509,10 @@ fun AssistantHomeScreen(
                             selected = state,
                             states = states,
                             onSelect = {
-                                resetIdleTimer()
-                                state = it
+                                if (!isChatBusy) {
+                                    resetIdleTimer()
+                                    state = it
+                                }
                             },
                             selectedContainer = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabel = MaterialTheme.colorScheme.primary,
@@ -523,6 +537,7 @@ private fun BottomInputControls(
     onSwitchToVoiceMode: () -> Unit,
     onTextSend: () -> Unit,
     isTextSendEnabled: Boolean,
+    isChatBusy: Boolean,
     modifier: Modifier = Modifier
 ) {
     val transition = rememberInfiniteTransition(label = "record-pulse")
@@ -545,7 +560,7 @@ private fun BottomInputControls(
         if (isTextInputMode) {
             IconButton(
                 onClick = onTextSend,
-                enabled = isTextSendEnabled,
+                enabled = isTextSendEnabled && !isChatBusy,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 8.dp)
@@ -568,6 +583,7 @@ private fun BottomInputControls(
 
             IconButton(
                 onClick = onSwitchToVoiceMode,
+                enabled = !isChatBusy,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 2.dp, bottom = 8.dp)
@@ -610,11 +626,13 @@ private fun BottomInputControls(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
-                                    onMicPressState(true)
-                                    try {
-                                        tryAwaitRelease()
-                                    } finally {
-                                        onMicPressState(false)
+                                    if (!isChatBusy) {
+                                        onMicPressState(true)
+                                        try {
+                                            tryAwaitRelease()
+                                        } finally {
+                                            onMicPressState(false)
+                                        }
                                     }
                                 }
                             )
@@ -632,6 +650,7 @@ private fun BottomInputControls(
 
             IconButton(
                 onClick = onSwitchToTextMode,
+                enabled = !isChatBusy,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 2.dp, bottom = 8.dp)

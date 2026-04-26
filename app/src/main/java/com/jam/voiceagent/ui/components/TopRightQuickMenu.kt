@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
@@ -37,12 +38,18 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun TopRightQuickMenu(
     isLoggedIn: Boolean,
+    enabled: Boolean = true,
     onHomeClick: () -> Unit,
     onChatClick: () -> Unit,
     onUserClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showMenu by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(enabled) {
+        if (!enabled) {
+            showMenu = false
+        }
+    }
 
     Row(
         modifier = modifier,
@@ -50,7 +57,7 @@ fun TopRightQuickMenu(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         AnimatedVisibility(
-            visible = showMenu,
+            visible = enabled && showMenu,
             enter = fadeIn(tween(150)) + expandHorizontally(
                 animationSpec = tween(180),
                 expandFrom = Alignment.End
@@ -78,8 +85,10 @@ fun TopRightQuickMenu(
                         modifier = Modifier
                             .size(21.dp)
                             .clickable {
-                                showMenu = false
-                                onHomeClick()
+                                if (enabled) {
+                                    showMenu = false
+                                    onHomeClick()
+                                }
                             }
                     )
                     Icon(
@@ -89,8 +98,10 @@ fun TopRightQuickMenu(
                         modifier = Modifier
                             .size(21.dp)
                             .clickable {
-                                showMenu = false
-                                onChatClick()
+                                if (enabled) {
+                                    showMenu = false
+                                    onChatClick()
+                                }
                             }
                     )
                     Icon(
@@ -100,15 +111,24 @@ fun TopRightQuickMenu(
                         modifier = Modifier
                             .size(21.dp)
                             .clickable {
-                                showMenu = false
-                                onUserClick()
+                                if (enabled) {
+                                    showMenu = false
+                                    onUserClick()
+                                }
                             }
                     )
                 }
             }
         }
 
-        IconButton(onClick = { showMenu = !showMenu }) {
+        IconButton(
+            onClick = {
+                if (enabled) {
+                    showMenu = !showMenu
+                }
+            },
+            enabled = enabled
+        ) {
             Box(
                 modifier = Modifier
                     .size(38.dp)

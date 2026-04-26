@@ -297,3 +297,24 @@
   - 來源：`local.properties` 的 `VOICE_AGENT_BASE_URL`
   - 預設 fallback：`http://10.0.2.2:8000`
   - 真機可改為 `http://192.168.x.x:8000`
+
+## 24. Phase Android-API-01.1 Text Chat 穩定性修正摘要
+
+- 新增單一 `isChatBusy` 鎖定狀態（由 `AppRoot` 最小共享）：
+  - 送出中到說話結束期間鎖住 Home 互動
+  - 防止送出期間切換模式、重複送出、點擊麥克風、開啟右上快捷選單
+  - 防止透過快捷選單離開 Home 導致回覆遺失
+- `latestAssistantReply` 提升到 `AppRoot` 最小共享狀態，避免 Home 重建時遺失最近回覆文字
+- `TopRightQuickMenu` 支援 disabled 狀態，`isChatBusy=true` 時不可開啟、不可操作
+- `ApiClient` timeout 調整為開發期較穩定值：
+  - `connectTimeout=30s`
+  - `writeTimeout=60s`
+  - `readTimeout=120s`
+  - `callTimeout=150s`
+- `ChatRepository` 錯誤分類與 Logcat 改善（不輸出 token）：
+  - timeout
+  - network unreachable
+  - unauthorized (401)
+  - 4xx client error
+  - 5xx server error
+  - response parse error
