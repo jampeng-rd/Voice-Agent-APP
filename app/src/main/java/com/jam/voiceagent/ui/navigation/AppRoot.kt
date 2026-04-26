@@ -22,6 +22,7 @@ import com.jam.voiceagent.data.local.TokenStore
 import com.jam.voiceagent.data.network.ApiClient
 import com.jam.voiceagent.data.repository.AuthRepository
 import com.jam.voiceagent.data.repository.ChatRepository
+import com.jam.voiceagent.data.repository.VoiceRepository
 import com.jam.voiceagent.ui.screens.AssistantHomeScreen
 import com.jam.voiceagent.ui.screens.auth.LoginScreen
 import com.jam.voiceagent.ui.screens.auth.RegisterScreen
@@ -45,6 +46,14 @@ fun AppRoot() {
             chatApi = ApiClient.chatApi,
             tokenStore = tokenStore,
             sessionStore = sessionStore
+        )
+    }
+    val voiceRepository = remember(context) {
+        VoiceRepository(
+            voiceApi = ApiClient.voiceApi,
+            tokenStore = tokenStore,
+            sessionStore = sessionStore,
+            cacheDir = context.cacheDir
         )
     }
 
@@ -108,6 +117,7 @@ fun AppRoot() {
                 onNavigateChat = goChat,
                 onUserAction = userAction,
                 chatRepository = chatRepository,
+                voiceRepository = voiceRepository,
                 isChatBusy = isChatBusy,
                 latestAssistantReply = latestAssistantReply,
                 startupErrorMessage = guestStartupErrorMessage,

@@ -1,5 +1,7 @@
 package com.jam.voiceagent.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
@@ -57,6 +59,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -66,6 +71,9 @@ import com.jam.voiceagent.ui.avatar.interaction.ShakeInteractionState
 import com.jam.voiceagent.ui.avatar.interaction.ShakeSensorController
 import com.jam.voiceagent.ui.avatar.interaction.rememberTouchAffectionHandler
 import com.jam.voiceagent.data.repository.ChatRepository
+import com.jam.voiceagent.data.audio.VoicePlayer
+import com.jam.voiceagent.data.audio.VoiceRecorder
+import com.jam.voiceagent.data.repository.VoiceRepository
 import com.jam.voiceagent.ui.components.ChatInputBar
 import com.jam.voiceagent.ui.components.EmotionButtons
 import com.jam.voiceagent.ui.components.TopRightQuickMenu
@@ -82,6 +90,7 @@ fun AssistantHomeScreen(
     onNavigateChat: () -> Unit,
     onUserAction: () -> Unit,
     chatRepository: ChatRepository,
+    voiceRepository: VoiceRepository,
     isChatBusy: Boolean,
     latestAssistantReply: String,
     startupErrorMessage: String,
@@ -102,6 +111,47 @@ fun AssistantHomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val touchAffectionHandler = rememberTouchAffectionHandler()
     val scope = rememberCoroutineScope()
+    val voiceRecorder = remember(context) { VoiceRecorder(context.cacheDir) }
+    val voicePlayer = remember { VoicePlayer() }
+    var activeRecordedFile by remember { mutableStateOf<java.io.File?>(null) }
+    var activeReplyAudioFile by remember { mutableStateOf<java.io.File?>(null) }
+
+    fun showVoiceError(message: String) {
+        onAssistantReplyChange(message)
+        state = AvatarState.Confused
+        scope.launch {
+            delay(900)
+            if (state == AvatarState.Confused) {
+                state = AvatarState.Idle
+            }
+        }
+    }
+
+    fun startVoiceRecordingFlow() {
+        if (isChatBusy || isTextInputMode) return
+        lastInteractionMs = System.currentTimeMillis()
+        val startResult = voiceRecorder.startRecording()
+        if (startResult.isFailure) {
+            isMicPressed = false
+            showVoiceError("錄音時發生問題，請再試一次。")
+            return
+        }
+        activeRecordedFile = startResult.getOrNull()
+        isMicPressed = true
+        state = AvatarState.Listening
+        onChatBusyChange(true)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startVoiceRecordingFlow()
+        } else {
+            isMicPressed = false
+            showVoiceError("需要麥克風權限才能使用語音對話。")
+        }
+    }
 
     var shakeState by remember {
         mutableStateOf(
@@ -135,6 +185,15 @@ fun AssistantHomeScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             sensorController.stop()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            voiceRecorder.cancelAndDeleteCurrent()
+            voicePlayer.stopAndRelease()
+            voiceRepository.deleteTempAudio(activeRecordedFile)
+            voiceRepository.deleteTempAudio(activeReplyAudioFile)
         }
     }
 
@@ -284,6 +343,65 @@ fun AssistantHomeScreen(
         }
     }
 
+    fun stopAndSendVoiceMessage() {
+        if (!isMicPressed) return
+
+        isMicPressed = false
+        state = AvatarState.Thinking
+
+        val stopResult = voiceRecorder.stopRecording()
+        val recordedFile = stopResult.getOrNull()
+        if (stopResult.isFailure || recordedFile == null) {
+            onChatBusyChange(false)
+            activeRecordedFile = null
+            showVoiceError("錄音時發生問題，請再試一次。")
+            return
+        }
+
+        activeRecordedFile = recordedFile
+        scope.launch {
+            try {
+                val voiceResult = voiceRepository.sendVoiceRound(recordedFile)
+                if (!voiceResult.aiReply.isNullOrBlank()) {
+                    onAssistantReplyChange(voiceResult.aiReply)
+                }
+
+                if (!voiceResult.isSuccess) {
+                    showVoiceError(voiceResult.errorMessage ?: "目前連線有點問題，請稍後再試。")
+                    return@launch
+                }
+
+                val replyFile = voiceResult.replyAudioFile
+                activeReplyAudioFile = replyFile
+
+                if (replyFile == null) {
+                    state = AvatarState.Idle
+                    onAssistantReplyChange(
+                        voiceResult.aiReply ?: "目前收到文字回覆，但伺服器未提供可播放音訊。"
+                    )
+                    return@launch
+                }
+
+                state = AvatarState.Speaking
+                val playback = runCatching { voicePlayer.playAndAwait(replyFile) }
+                if (playback.isFailure) {
+                    showVoiceError("播放回覆時發生問題，請稍後再試。")
+                } else {
+                    state = AvatarState.Idle
+                }
+            } finally {
+                voiceRepository.deleteTempAudio(activeRecordedFile)
+                voiceRepository.deleteTempAudio(activeReplyAudioFile)
+                activeRecordedFile = null
+                activeReplyAudioFile = null
+                onChatBusyChange(false)
+                if (state == AvatarState.Thinking) {
+                    state = AvatarState.Idle
+                }
+            }
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -421,10 +539,25 @@ fun AssistantHomeScreen(
                 isTextInputMode = isTextInputMode,
                 isMicPressed = isMicPressed,
                 onMicPressState = { pressed ->
-                    if (!isTextInputMode && !isChatBusy) {
-                        resetIdleTimer()
-                        isMicPressed = pressed
-                        state = if (pressed) AvatarState.Listening else AvatarState.Idle
+                    if (!isTextInputMode) {
+                        if (pressed) {
+                            if (!isChatBusy) {
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.RECORD_AUDIO
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (hasPermission) {
+                                    startVoiceRecordingFlow()
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            }
+                        } else if (isMicPressed) {
+                            stopAndSendVoiceMessage()
+                        } else {
+                            isMicPressed = false
+                            if (state == AvatarState.Listening) state = AvatarState.Idle
+                        }
                     }
                 },
                 onSwitchToTextMode = {

@@ -346,3 +346,36 @@
 - guest token 建立失敗時：
   - Home 不閃退
   - 顯示 `目前無法建立訪客連線，請稍後再試。`
+
+## 26. Phase Android-VOICE-01 Voice Round API 串接摘要
+
+- 新增 `RECORD_AUDIO` 權限，Home 主麥克風改為按住錄音、放開送出。
+- `/api/voice/round` 依 server route 實作：
+  - `POST /api/voice/round`
+  - `multipart/form-data`
+  - 欄位：`audio_file`（檔案）、`session_id`（文字）
+  - Header：`Authorization: Bearer <token>`
+- Android 上傳錄音檔格式改為 WAV（server 目前只接受 WAV）。
+- Voice round response 依 server schema：
+  - `success`
+  - `session_id`
+  - `identity_type`
+  - `user_id`
+  - `guest_id`
+  - `user_text`
+  - `ai_reply`
+  - `input_wav`
+  - `output_wav`
+  - `error_message`
+- 主畫面語音狀態流程：
+  - 錄音中：`Listening`
+  - 上傳/等待：`Thinking`
+  - 播放中：`Speaking`
+  - 完成：`Idle`
+- 既有單一 busy 狀態延伸為「文字+語音共用」：
+  - 錄音、上傳、播放期間都鎖住模式切換、文字送出、重複錄音、右上快捷選單、導航離開 Home。
+- guest 語音隱私：
+  - 錄音檔與下載回覆音訊只存 `cacheDir`
+  - 完成/失敗/取消/畫面釋放時刪除暫存音訊檔
+  - 不寫入 SharedPreferences / DataStore / Room / SQLite
+- Logcat 不印 token，且不輸出完整 STT 文字。

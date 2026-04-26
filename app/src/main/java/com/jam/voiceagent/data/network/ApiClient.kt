@@ -21,6 +21,9 @@ object ApiClient {
             .build()
     }
 
+    val rawHttpClient: OkHttpClient
+        get() = okHttpClient
+
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(ApiConfig.baseUrl)
@@ -31,4 +34,5 @@ object ApiClient {
 
     val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
     val chatApi: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+    val voiceApi: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
 }
