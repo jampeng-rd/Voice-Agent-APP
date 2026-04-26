@@ -30,5 +30,5 @@ local.properties
 captures/
 
 # AI Agent
-#AGENTS.md
-#agent-docs
+AGENTS.md
+agent-docs

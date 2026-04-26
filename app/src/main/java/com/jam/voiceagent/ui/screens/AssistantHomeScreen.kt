@@ -86,6 +86,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.hypot
 import kotlin.random.Random
 
+private const val SHOW_DEBUG_PANEL = false
+
 @Composable
 fun AssistantHomeScreen(
     isLoggedIn: Boolean,
@@ -635,78 +637,80 @@ fun AssistantHomeScreen(
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 8.dp)
-                    .padding(bottom = if (isTextInputMode) 170.dp else 128.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
-                tonalElevation = 0.dp,
-                shadowElevation = 0.dp
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                    horizontalAlignment = Alignment.Start
+            if (SHOW_DEBUG_PANEL) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 8.dp)
+                        .padding(bottom = if (isTextInputMode) 170.dp else 128.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    Column(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                        horizontalAlignment = Alignment.Start
                     ) {
-                        Text(
-                            text = "Debug",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.alpha(0.6f)
-                        )
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "切換 debug 表情",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clickable {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Debug",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.alpha(0.6f)
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "切換 debug 表情",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clickable {
+                                        if (!isChatBusy) {
+                                            resetIdleTimer()
+                                            showDebugPanel = !showDebugPanel
+                                        }
+                                    }
+                                    .alpha(0.72f)
+                            )
+                        }
+                        if (showDebugPanel) {
+                            Text(
+                                text =
+                                    "A:${"%.2f".format(touchAffectionHandler.affectionLevel)} " +
+                                        "S:${"%.2f".format(shakeState.shakeStrength)} " +
+                                        "M:${"%.1f".format(shakeState.shakeMagnitude)} " +
+                                        "J:${"%.2f".format(shakeState.jerkStrength)} " +
+                                        "C:${shakeState.strongShakeCount} " +
+                                        "TH:${"%.1f".format(shakeState.strongMagnitudeThreshold)}/${"%.0f".format(shakeState.strongJerkThreshold)}/${shakeState.strongRequiredHits} " +
+                                        "CD:${"%.1f".format(shakeCooldownRemainingMs / 1000f)}s " +
+                                        "D:${if (isDizzy) "Y" else "N"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.alpha(0.66f)
+                            )
+                        }
+                        AnimatedVisibility(visible = showDebugPanel) {
+                            EmotionButtons(
+                                selected = state,
+                                states = states,
+                                onSelect = {
                                     if (!isChatBusy) {
                                         resetIdleTimer()
-                                        showDebugPanel = !showDebugPanel
+                                        state = it
                                     }
-                                }
-                                .alpha(0.72f)
-                        )
-                    }
-                    if (showDebugPanel) {
-                        Text(
-                            text =
-                                "A:${"%.2f".format(touchAffectionHandler.affectionLevel)} " +
-                                    "S:${"%.2f".format(shakeState.shakeStrength)} " +
-                                    "M:${"%.1f".format(shakeState.shakeMagnitude)} " +
-                                    "J:${"%.2f".format(shakeState.jerkStrength)} " +
-                                    "C:${shakeState.strongShakeCount} " +
-                                    "TH:${"%.1f".format(shakeState.strongMagnitudeThreshold)}/${"%.0f".format(shakeState.strongJerkThreshold)}/${shakeState.strongRequiredHits} " +
-                                    "CD:${"%.1f".format(shakeCooldownRemainingMs / 1000f)}s " +
-                                    "D:${if (isDizzy) "Y" else "N"}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.alpha(0.66f)
-                        )
-                    }
-                    AnimatedVisibility(visible = showDebugPanel) {
-                        EmotionButtons(
-                            selected = state,
-                            states = states,
-                            onSelect = {
-                                if (!isChatBusy) {
-                                    resetIdleTimer()
-                                    state = it
-                                }
-                            },
-                            selectedContainer = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabel = MaterialTheme.colorScheme.primary,
-                            container = MaterialTheme.colorScheme.surface,
-                            label = MaterialTheme.colorScheme.onSurfaceVariant,
-                            compact = true,
-                            modifier = Modifier.width(220.dp)
-                        )
+                                },
+                                selectedContainer = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabel = MaterialTheme.colorScheme.primary,
+                                container = MaterialTheme.colorScheme.surface,
+                                label = MaterialTheme.colorScheme.onSurfaceVariant,
+                                compact = true,
+                                modifier = Modifier.width(220.dp)
+                            )
+                        }
                     }
                 }
             }

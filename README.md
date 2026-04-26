@@ -1,14 +1,10 @@
-# voice-agent-android
+# Voice Agent Android
 
-`voice-agent-android` 是 `voice-agent-server` 的 Android client。目標是建立一個以 **語音輸入 / 語音輸出為核心** 的 AI companion App；文字輸入是輔助模式。
+目標是建立一個以 **語音輸入 / 語音輸出為核心** 的 AI companion App；文字輸入是輔助模式。
 
-目前 Android App 已完成到：
+目前 Android App 已具備：
 
-```text
-Android-CONV-01.3 UI 微調
-```
-
-也就是已具備：角色語音互動 Home、Login/Register、Guest flow、文字聊天、語音 round、TTS 播放、Token recovery、registered conversation history、選擇歷史對話繼續、新對話 `+` 按鈕，以及幾個重要錯誤狀態的表情回饋。
+角色語音互動 Home、Login/Register、Guest flow、文字聊天、語音 round、TTS 播放、Token recovery、registered conversation history、選擇歷史對話繼續、新對話 `+` 按鈕，以及幾個重要錯誤狀態的表情回饋。
 
 ---
 
@@ -66,7 +62,7 @@ Android-CONV-01.3 UI 微調
 - Phase Android-CONV-01：Registered Conversation History API 串接
 - Phase Android-CONV-01.1：時間格式與 session debug
 - Phase Android-CONV-01.2：New Conversation Action 與 Auth Expired Emotion
-- Phase Android-CONV-01.3：UI 微調（+ 最左側、底部對齊、STT 空結果驚訝表情）
+- Phase Android-CONV-01.3：UI 微調
 
 ---
 
