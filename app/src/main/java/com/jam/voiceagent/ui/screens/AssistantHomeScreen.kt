@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NorthEast
@@ -90,6 +92,7 @@ fun AssistantHomeScreen(
     onNavigateHome: () -> Unit,
     onNavigateChat: () -> Unit,
     onUserAction: () -> Unit,
+    onStartNewConversation: () -> Unit,
     chatRepository: ChatRepository,
     voiceRepository: VoiceRepository,
     isChatBusy: Boolean,
@@ -330,6 +333,13 @@ fun AssistantHomeScreen(
                 val result = chatRepository.sendText(requestText)
                 if (result.switchedToGuest) {
                     onAuthSwitchedToGuest()
+                    onAssistantReplyChange(result.errorMessage ?: "登入已過期，已切換為訪客模式。")
+                    state = AvatarState.Helpless
+                    delay(1200)
+                    if (state == AvatarState.Helpless) {
+                        state = AvatarState.Idle
+                    }
+                    return@launch
                 }
                 if (result.isSuccess) {
                     onAssistantReplyChange(result.aiReply.orEmpty())
@@ -375,6 +385,13 @@ fun AssistantHomeScreen(
                 val voiceResult = voiceRepository.sendVoiceRound(recordedFile)
                 if (voiceResult.switchedToGuest) {
                     onAuthSwitchedToGuest()
+                    onAssistantReplyChange(voiceResult.errorMessage ?: "登入已過期，已切換為訪客模式。")
+                    state = AvatarState.Helpless
+                    delay(1200)
+                    if (state == AvatarState.Helpless) {
+                        state = AvatarState.Idle
+                    }
+                    return@launch
                 }
                 if (!voiceResult.aiReply.isNullOrBlank()) {
                     onAssistantReplyChange(voiceResult.aiReply)
@@ -554,9 +571,16 @@ fun AssistantHomeScreen(
             }
 
             BottomInputControls(
+                showNewConversationAction = isLoggedIn,
                 isTextInputMode = isTextInputMode,
                 isMicPressed = isMicPressed,
                 isRecordingVoice = voiceUiPhase == VoiceUiPhase.Recording,
+                onStartNewConversation = {
+                    if (!isChatBusy) {
+                        resetIdleTimer()
+                        onStartNewConversation()
+                    }
+                },
                 onMicPressState = { pressed ->
                     if (!isTextInputMode) {
                         if (pressed) {
@@ -682,9 +706,11 @@ fun AssistantHomeScreen(
 
 @Composable
 private fun BottomInputControls(
+    showNewConversationAction: Boolean,
     isTextInputMode: Boolean,
     isMicPressed: Boolean,
     isRecordingVoice: Boolean,
+    onStartNewConversation: () -> Unit,
     onMicPressState: (Boolean) -> Unit,
     onSwitchToTextMode: () -> Unit,
     onSwitchToVoiceMode: () -> Unit,
@@ -711,6 +737,32 @@ private fun BottomInputControls(
             .padding(bottom = if (isTextInputMode) 12.dp else 14.dp)
     ) {
         if (isTextInputMode) {
+            if (showNewConversationAction) {
+                IconButton(
+                    onClick = onStartNewConversation,
+                    enabled = !isChatBusy,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(x = (-92).dp)
+                        .padding(bottom = 8.dp)
+                        .size(44.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "開始新對話",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                }
+            }
+
             IconButton(
                 onClick = onTextSend,
                 enabled = isTextSendEnabled && !isChatBusy,
@@ -757,6 +809,32 @@ private fun BottomInputControls(
                 }
             }
         } else {
+            if (showNewConversationAction) {
+                IconButton(
+                    onClick = onStartNewConversation,
+                    enabled = !isChatBusy,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(x = (-92).dp)
+                        .padding(bottom = 8.dp)
+                        .size(44.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "開始新對話",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

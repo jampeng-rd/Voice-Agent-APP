@@ -130,6 +130,14 @@ fun AppRoot() {
                 onNavigateHome = goHome,
                 onNavigateChat = goChat,
                 onUserAction = userAction,
+                onStartNewConversation = {
+                    if (isLoggedIn && !isChatBusy) {
+                        val newSessionId = sessionStore.createFreshRegisteredSessionId()
+                        Log.i(TAG, "start new conversation from home: session=${SessionDebug.short(newSessionId)}")
+                        latestAssistantReply = "已開始新的對話"
+                        guestStartupErrorMessage = ""
+                    }
+                },
                 chatRepository = chatRepository,
                 voiceRepository = voiceRepository,
                 isChatBusy = isChatBusy,

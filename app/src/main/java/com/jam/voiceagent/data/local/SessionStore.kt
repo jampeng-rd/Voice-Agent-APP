@@ -69,6 +69,13 @@ class SessionStore(context: Context) {
         prefs.edit().putString(KEY_REGISTERED_SESSION_ID, sessionId).apply()
     }
 
+    fun createFreshRegisteredSessionId(): String {
+        val newSessionId = UUID.randomUUID().toString()
+        saveRegisteredSessionId(newSessionId)
+        Log.i(TAG, "created fresh registered session: session=${SessionDebug.short(newSessionId)}")
+        return newSessionId
+    }
+
     fun replaceRegisteredWithGuestSessionIfAvailable() {
         val guestSession = guestSessionId
         if (guestSession.isNullOrBlank()) return
