@@ -8,6 +8,7 @@ import com.jam.voiceagent.data.model.VoiceRoundResponse
 import com.jam.voiceagent.data.network.ApiClient
 import com.jam.voiceagent.data.network.ApiConfig
 import com.jam.voiceagent.data.network.VoiceApi
+import com.jam.voiceagent.data.util.SessionDebug
 import java.io.File
 import java.io.IOException
 import java.net.ConnectException
@@ -65,6 +66,10 @@ class VoiceRepository(
         }
 
         val sessionId = sessionStore.getOrCreateSessionId(isRegistered = usingRegistered)
+        Log.i(
+            TAG,
+            "voice request: identity=$identity session=${SessionDebug.short(sessionId)} retry=$hasRetriedAfterRecovery"
+        )
         val audioPart = MultipartBody.Part.createFormData(
             "audio_file",
             recordedWavFile.name,
@@ -84,7 +89,8 @@ class VoiceRepository(
                     response = response,
                     recordedWavFile = recordedWavFile,
                     usingRegistered = usingRegistered,
-                    hasRetriedAfterRecovery = hasRetriedAfterRecovery
+                    hasRetriedAfterRecovery = hasRetriedAfterRecovery,
+                    requestSessionId = sessionId
                 )
             },
             onFailure = { throwable ->
@@ -110,7 +116,8 @@ class VoiceRepository(
         response: Response<VoiceRoundResponse>,
         recordedWavFile: File,
         usingRegistered: Boolean,
-        hasRetriedAfterRecovery: Boolean
+        hasRetriedAfterRecovery: Boolean,
+        requestSessionId: String
     ): VoiceRoundResult {
         val identity = if (usingRegistered) "registered" else "guest"
         if (!response.isSuccessful) {
@@ -160,6 +167,16 @@ class VoiceRepository(
 
         if (!body.success) {
             return VoiceRoundResult(errorMessage = body.error_message ?: "語音回合處理失敗，請稍後再試。")
+        }
+        Log.i(
+            TAG,
+            "voice response success: identity=$identity request=${SessionDebug.short(requestSessionId)} response=${SessionDebug.short(body.session_id)}"
+        )
+        if (!body.session_id.isNullOrBlank() && body.session_id != requestSessionId) {
+            Log.w(
+                TAG,
+                "voice response session differs from request: request=${SessionDebug.short(requestSessionId)} response=${SessionDebug.short(body.session_id)}"
+            )
         }
 
         val resolvedAudio = resolveReplyAudioFile(

@@ -3,6 +3,7 @@ package com.jam.voiceagent.ui.navigation
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -24,6 +25,7 @@ import com.jam.voiceagent.data.repository.AuthRepository
 import com.jam.voiceagent.data.repository.ChatRepository
 import com.jam.voiceagent.data.repository.ConversationRepository
 import com.jam.voiceagent.data.repository.VoiceRepository
+import com.jam.voiceagent.data.util.SessionDebug
 import com.jam.voiceagent.ui.screens.AssistantHomeScreen
 import com.jam.voiceagent.ui.screens.auth.LoginScreen
 import com.jam.voiceagent.ui.screens.auth.RegisterScreen
@@ -195,6 +197,7 @@ fun AppRoot() {
                     onChatClick = goChat,
                     onUserClick = userAction,
                     onOpenDetail = { sessionId ->
+                        Log.i(TAG, "conversation selected from list: session=${SessionDebug.short(sessionId)}")
                         selectedConversationSessionId = sessionId
                         route = AppRoute.ConversationDetail
                     },
@@ -252,6 +255,10 @@ fun AppRoot() {
                         onChatClick = goChat,
                         onUserClick = userAction,
                         onConfirmUseSession = { confirmedSessionId ->
+                            Log.i(
+                                TAG,
+                                "conversation confirmed to home: selected=${SessionDebug.short(confirmedSessionId)}"
+                            )
                             sessionStore.saveRegisteredSessionId(confirmedSessionId)
                             route = AppRoute.Home
                         },
@@ -299,3 +306,5 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
+
+private const val TAG = "AppRoot"

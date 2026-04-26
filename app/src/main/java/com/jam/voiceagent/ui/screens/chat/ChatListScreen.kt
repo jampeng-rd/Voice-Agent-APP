@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.jam.voiceagent.data.model.ConversationSummary
 import com.jam.voiceagent.data.repository.ConversationRepository
 import com.jam.voiceagent.ui.components.TopRightQuickMenu
+import com.jam.voiceagent.ui.util.formatServerTimestampToTaipei
 import kotlin.math.roundToInt
 
 @Composable
@@ -282,9 +283,11 @@ private fun ConversationRow(
     var offsetX by remember(item.sessionId) { mutableFloatStateOf(0f) }
     val thresholdRatio = 0.42f
     val title = item.title?.takeIf { it.isNotBlank() } ?: "未命名對話"
-    val timeText = item.updatedAt?.takeIf { it.isNotBlank() }
-        ?: item.createdAt?.takeIf { it.isNotBlank() }
-        ?: "時間未知"
+    val timeText = formatServerTimestampToTaipei(
+        rawTimestamp = item.updatedAt?.takeIf { it.isNotBlank() }
+            ?: item.createdAt?.takeIf { it.isNotBlank() },
+        fallback = "時間未知"
+    )
 
     LaunchedEffect(isExpanded, revealWidthPx, isDeleting) {
         offsetX = if (isExpanded && !isDeleting) -revealWidthPx else 0f

@@ -8,6 +8,7 @@ import com.jam.voiceagent.data.local.TokenStore
 import com.jam.voiceagent.data.model.ChatRequest
 import com.jam.voiceagent.data.model.ChatResponse
 import com.jam.voiceagent.data.network.ChatApi
+import com.jam.voiceagent.data.util.SessionDebug
 import java.io.InterruptedIOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -39,6 +40,7 @@ class ChatRepository(
         hasRetriedAfterRecovery: Boolean
     ): ChatSendResult {
         val usingRegistered = tokenStore.isUsingRegisteredToken()
+        val identity = if (usingRegistered) "registered" else "guest"
         val token = if (usingRegistered) {
             tokenStore.getRegisteredToken()
         } else {
@@ -51,6 +53,10 @@ class ChatRepository(
         }
 
         val sessionId = sessionStore.getOrCreateSessionId(isRegistered = usingRegistered)
+        Log.i(
+            TAG,
+            "chat request: identity=$identity session=${SessionDebug.short(sessionId)} retry=$hasRetriedAfterRecovery"
+        )
         return runCatching {
             chatApi.sendText(
                 authorization = "Bearer $token",
@@ -65,7 +71,8 @@ class ChatRepository(
                     response = response,
                     originalText = text,
                     usingRegistered = usingRegistered,
-                    hasRetriedAfterRecovery = hasRetriedAfterRecovery
+                    hasRetriedAfterRecovery = hasRetriedAfterRecovery,
+                    requestSessionId = sessionId
                 )
             },
             onFailure = { throwable ->
@@ -88,7 +95,8 @@ class ChatRepository(
         response: Response<ChatResponse>,
         originalText: String,
         usingRegistered: Boolean,
-        hasRetriedAfterRecovery: Boolean
+        hasRetriedAfterRecovery: Boolean,
+        requestSessionId: String
     ): ChatSendResult {
         if (response.isSuccessful) {
             val body = runCatching { response.body() }.getOrElse { parseError ->
@@ -97,6 +105,17 @@ class ChatRepository(
             }
 
             if (body?.success == true) {
+                val responseSessionId = body.session_id
+                Log.i(
+                    TAG,
+                    "chat response success: identity=${if (usingRegistered) "registered" else "guest"} request=${SessionDebug.short(requestSessionId)} response=${SessionDebug.short(responseSessionId)}"
+                )
+                if (!responseSessionId.isNullOrBlank() && responseSessionId != requestSessionId) {
+                    Log.w(
+                        TAG,
+                        "chat response session differs from request: request=${SessionDebug.short(requestSessionId)} response=${SessionDebug.short(responseSessionId)}"
+                    )
+                }
                 val reply = body.ai_reply?.takeIf { it.isNotBlank() } ?: "已收到回覆。"
                 return ChatSendResult(aiReply = reply)
             }

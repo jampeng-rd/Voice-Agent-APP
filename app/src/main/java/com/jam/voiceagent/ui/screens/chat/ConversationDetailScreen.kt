@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.jam.voiceagent.data.model.ConversationDetail
 import com.jam.voiceagent.data.repository.ConversationRepository
 import com.jam.voiceagent.ui.components.TopRightQuickMenu
+import com.jam.voiceagent.ui.util.formatServerTimestampToTaipei
 
 @Composable
 fun ConversationDetailScreen(
@@ -187,7 +188,10 @@ fun ConversationDetailScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = message.createdAt ?: "時間未知",
+                                        text = formatServerTimestampToTaipei(
+                                            rawTimestamp = message.createdAt,
+                                            fallback = "時間未知"
+                                        ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,

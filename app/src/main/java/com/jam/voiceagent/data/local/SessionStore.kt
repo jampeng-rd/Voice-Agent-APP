@@ -1,6 +1,8 @@
 package com.jam.voiceagent.data.local
 
 import android.content.Context
+import android.util.Log
+import com.jam.voiceagent.data.util.SessionDebug
 import java.util.UUID
 
 class SessionStore(context: Context) {
@@ -13,6 +15,7 @@ class SessionStore(context: Context) {
 
         val newSessionId = UUID.randomUUID().toString()
         prefs.edit().putString(KEY_REGISTERED_SESSION_ID, newSessionId).apply()
+        Log.i(TAG, "created new registered session: session=${SessionDebug.short(newSessionId)}")
         return newSessionId
     }
 
@@ -41,6 +44,8 @@ class SessionStore(context: Context) {
     }
 
     fun clearRegisteredSessionId() {
+        val previous = peekRegisteredSessionId()
+        Log.i(TAG, "clear registered session: previous=${SessionDebug.short(previous)}")
         prefs.edit().remove(KEY_REGISTERED_SESSION_ID).apply()
     }
 
@@ -60,6 +65,7 @@ class SessionStore(context: Context) {
     fun peekRegisteredSessionId(): String? = prefs.getString(KEY_REGISTERED_SESSION_ID, null)
 
     fun saveRegisteredSessionId(sessionId: String) {
+        Log.i(TAG, "save registered session: session=${SessionDebug.short(sessionId)}")
         prefs.edit().putString(KEY_REGISTERED_SESSION_ID, sessionId).apply()
     }
 
@@ -77,6 +83,7 @@ class SessionStore(context: Context) {
     }
 
     companion object {
+        private const val TAG = "SessionStore"
         private const val PREFS_NAME = "voice_agent_prefs"
         private const val KEY_REGISTERED_SESSION_ID = "registered_chat_session_id"
     }
